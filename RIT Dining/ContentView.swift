@@ -9,8 +9,43 @@ import SwiftUI
 
 struct Location: Hashable {
     let name: String
+    let summary: String
+    let desc: String
+    let mapsUrl: String
     let todaysHours: [String]
     let isOpen: openStatus
+}
+
+struct LocationList: View {
+    let diningLocations: [Location]
+    
+    var body: some View {
+        ForEach(diningLocations, id: \.self) { location in
+            NavigationLink(destination: DetailView(location: location)) {
+                VStack(alignment: .leading) {
+                    Text(location.name)
+                    switch location.isOpen {
+                    case .open:
+                        Text("Open")
+                            .foregroundStyle(.green)
+                    case .closed:
+                        Text("Closed")
+                            .foregroundStyle(.red)
+                    case .openingSoon:
+                        Text("Opening Soon")
+                            .foregroundStyle(.orange)
+                    case .closingSoon:
+                        Text("Closing Soon")
+                            .foregroundStyle(.orange)
+                    }
+                    ForEach(location.todaysHours, id: \.self) { hours in
+                        Text(hours)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct ContentView: View {
@@ -18,6 +53,8 @@ struct ContentView: View {
     @State private var rotationDegrees: Double = 0
     @State private var diningLocations: [Location] = []
     @State private var lastRefreshed: Date?
+    @State private var searchText: String = ""
+    @State private var openLocationsOnly: Bool = false
     
     private var animation: Animation {
         .linear
@@ -58,6 +95,9 @@ struct ContentView: View {
                             newDiningLocations.append(
                                 Location(
                                     name: diningInfo.name,
+                                    summary: diningInfo.summary,
+                                    desc: diningInfo.desc,
+                                    mapsUrl: diningInfo.mapsUrl,
                                     todaysHours: todaysHours,
                                     isOpen: diningInfo.open
                                 )
@@ -72,6 +112,16 @@ struct ContentView: View {
                 case .failure(let error): print(error)
                 }
             }
+        }
+    }
+    
+    // Allow for searching the list and hiding closed locations. Gets a list of locations that match the search and a list that match
+    // the open only filter (.open and .closingSoon) and then returns the ones that match both lists.
+    private var filteredLocations: [Location] {
+        diningLocations.filter { location in
+            let searchedLocations = searchText.isEmpty || location.name.localizedCaseInsensitiveContains(searchText)
+            let openLocations = !openLocationsOnly || location.isOpen == .open || location.isOpen == .closingSoon
+            return searchedLocations && openLocations
         }
     }
     
@@ -97,28 +147,7 @@ struct ContentView: View {
                 VStack() {
                     List {
                         Section(content: {
-                            ForEach(diningLocations, id: \.self) { location in
-                                VStack(alignment: .leading) {
-                                    Text(location.name)
-                                    ForEach(location.todaysHours, id: \.self) { hours in
-                                        Text(hours)
-                                    }
-                                    switch location.isOpen {
-                                    case .open:
-                                        Text("Open")
-                                            .foregroundStyle(.green)
-                                    case .closed:
-                                        Text("Closed")
-                                            .foregroundStyle(.red)
-                                    case .openingSoon:
-                                        Text("Opening Soon")
-                                            .foregroundStyle(.orange)
-                                    case .closingSoon:
-                                        Text("Closing Soon")
-                                            .foregroundStyle(.orange)
-                                    }
-                                }
-                            }
+                            LocationList(diningLocations: filteredLocations)
                         }, footer: {
                             if let lastRefreshed {
                                 VStack(alignment: .center) {
@@ -131,8 +160,25 @@ struct ContentView: View {
                     }
                 }
                 .navigationTitle("RIT Dining")
+                .searchable(text: $searchText, prompt: "Search...")
                 .refreshable {
                     getDiningData()
+                }
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button(action: {
+                                getDiningData()
+                            }) {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
+                            Toggle(isOn: $openLocationsOnly) {
+                                Label("Hide Closed Locations", systemImage: "eye.slash")
+                            }
+                        } label: {
+                            Image(systemName: "slider.horizontal.3")
+                        }
+                    }
                 }
             }
         }

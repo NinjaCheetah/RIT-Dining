@@ -28,6 +28,9 @@ struct DiningLocation: Decodable {
     
     let id: Int
     let name: String
+    let summary: String
+    let description: String
+    let mapsUrl: String
     let events: [Events]
 }
 
@@ -87,6 +90,9 @@ struct DiningTimes: Equatable {
 struct DiningInfo {
     let id: Int
     let name: String
+    let summary: String
+    let desc: String
+    let mapsUrl: String
     let diningTimes: [DiningTimes]?
     let open: openStatus
 }
@@ -94,11 +100,17 @@ struct DiningInfo {
 func getLocationInfo(location: DiningLocation) -> DiningInfo {
     print("beginning parse for \(location.name)")
     
+    // The descriptions sometimes have HTML <br /> tags despite also having \n. Those need to be removed.
+    let desc = location.description.replacingOccurrences(of: "<br />", with: "")
+    
     // Early return if there are no events, good for things like the food trucks which can very easily have no openings in a week.
     if location.events.isEmpty {
         return DiningInfo(
             id: location.id,
             name: location.name,
+            summary: location.summary,
+            desc: desc,
+            mapsUrl: location.mapsUrl,
             diningTimes: .none,
             open: .closed)
     }
@@ -108,19 +120,22 @@ func getLocationInfo(location: DiningLocation) -> DiningInfo {
     
     // Dining locations have a regular schedule, but then they also have exceptions listed for days like weekends or holidays. If there
     // are exceptions, use those times for the day, otherwise we can just use the default times.
-    if let exceptions = location.events[0].exceptions, !exceptions.isEmpty {
-        // Early return if the exception for the day specifies that the location is closed. Used for things like holidays.
-        if !location.events[0].exceptions![0].open {
-            return DiningInfo(
-                id: location.id,
-                name: location.name,
-                diningTimes: .none,
-                open: .closed)
-        }
-        openStrings.append(location.events[0].exceptions![0].startTime)
-        closeStrings.append(location.events[0].exceptions![0].endTime)
-    } else {
-        for event in location.events {
+    for event in location.events {
+        if let exceptions = event.exceptions, !exceptions.isEmpty {
+            // Early return if the exception for the day specifies that the location is closed. Used for things like holidays.
+            if !exceptions[0].open {
+                return DiningInfo(
+                    id: location.id,
+                    name: location.name,
+                    summary: location.summary,
+                    desc: desc,
+                    mapsUrl: location.mapsUrl,
+                    diningTimes: .none,
+                    open: .closed)
+            }
+            openStrings.append(exceptions[0].startTime)
+            closeStrings.append(exceptions[0].endTime)
+        } else {
             openStrings.append(event.startTime)
             closeStrings.append(event.endTime)
         }
@@ -161,26 +176,25 @@ func getLocationInfo(location: DiningLocation) -> DiningInfo {
         }
     }
     
-    // This can probably be done in a cleaner way but it's okay for now. If the location is open but the close date is within the next
+    // This can probably be done a little cleaner but it's okay for now. If the location is open but the close date is within the next
     // 30 minutes, label it as closing soon, and do the opposite if it's closed but the open date is within the next 30 minutes.
     var openStatus: openStatus = .closed
     for i in 0..<openDates.count {
-        let isOpen = (now >= openDates[i] && now <= closeDates[i])
-        if isOpen {
+        if now >= openDates[i] && now <= closeDates[i] {
             if closeDates[i] < calendar.date(byAdding: .minute, value: 30, to: now)! {
                 openStatus = .closingSoon
-                break
             } else {
                 openStatus = .open
-                break
             }
+        } else if openDates[i] <= calendar.date(byAdding: .minute, value: 30, to: now)! && closeDates[i] > now {
+            openStatus = .openingSoon
         } else {
-            if openDates[i] < calendar.date(byAdding: .minute, value: 30, to: now)! {
-                openStatus = .openingSoon
-                break
-            } else {
-                openStatus = .closed
-            }
+            openStatus = .closed
+        }
+        // If the first event pass came back closed, loop again in case a later event has a different status. This is mostly to
+        // accurately catch Gracie's multiple open periods each day.
+        if openStatus != .closed {
+            break
         }
     }
     
@@ -192,6 +206,9 @@ func getLocationInfo(location: DiningLocation) -> DiningInfo {
     return DiningInfo(
         id: location.id,
         name: location.name,
+        summary: location.summary,
+        desc: desc,
+        mapsUrl: location.mapsUrl,
         diningTimes: diningTimes,
         open: openStatus)
 }
