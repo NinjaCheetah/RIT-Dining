@@ -79,11 +79,15 @@ enum openStatus {
     case closingSoon
 }
 
+struct DiningTimes: Equatable {
+    let openTime: Date
+    let closeTime: Date
+}
+
 struct DiningInfo {
     let id: Int
     let name: String
-    let openTime: Date?
-    let closeTime: Date?
+    let diningTimes: [DiningTimes]?
     let open: openStatus
 }
 
@@ -95,13 +99,12 @@ func getLocationInfo(location: DiningLocation) -> DiningInfo {
         return DiningInfo(
             id: location.id,
             name: location.name,
-            openTime: .none,
-            closeTime: .none,
+            diningTimes: .none,
             open: .closed)
     }
     
-    let openString: String
-    let closeString: String
+    var openStrings: [String] = []
+    var closeStrings: [String] = []
     
     // Dining locations have a regular schedule, but then they also have exceptions listed for days like weekends or holidays. If there
     // are exceptions, use those times for the day, otherwise we can just use the default times.
@@ -111,67 +114,84 @@ func getLocationInfo(location: DiningLocation) -> DiningInfo {
             return DiningInfo(
                 id: location.id,
                 name: location.name,
-                openTime: .none,
-                closeTime: .none,
+                diningTimes: .none,
                 open: .closed)
         }
-        openString = location.events[0].exceptions![0].startTime
-        closeString = location.events[0].exceptions![0].endTime
+        openStrings.append(location.events[0].exceptions![0].startTime)
+        closeStrings.append(location.events[0].exceptions![0].endTime)
     } else {
-        openString = location.events[0].startTime
-        closeString = location.events[0].endTime
+        for event in location.events {
+            openStrings.append(event.startTime)
+            closeStrings.append(event.endTime)
+        }
     }
     
     // I hate all of this date component nonsense.
-    let openParts = openString.split(separator: ":").map { Int($0) ?? 0 }
-    let openTimeComponents = DateComponents(hour: openParts[0], minute: openParts[1], second: openParts[2])
-    
-    let closeParts = closeString.split(separator: ":").map { Int($0) ?? 0 }
-    let closeTimeComponents = DateComponents(hour: closeParts[0], minute: closeParts[1], second: closeParts[2])
+    var openDates: [Date] = []
+    var closeDates: [Date] = []
     
     let calendar = Calendar.current
     let now = Date()
     
-    let openDate = calendar.date(
-        bySettingHour: openTimeComponents.hour!,
-        minute: openTimeComponents.minute!,
-        second: openTimeComponents.second!,
-        of: now)!
-    
-    var closeDate = calendar.date(
-        bySettingHour: closeTimeComponents.hour!,
-        minute: closeTimeComponents.minute!,
-        second: closeTimeComponents.second!,
-        of: now)!
+    for i in 0..<openStrings.count {
+        let openParts = openStrings[i].split(separator: ":").map { Int($0) ?? 0 }
+        let openTimeComponents = DateComponents(hour: openParts[0], minute: openParts[1], second: openParts[2])
+        
+        let closeParts = closeStrings[i].split(separator: ":").map { Int($0) ?? 0 }
+        let closeTimeComponents = DateComponents(hour: closeParts[0], minute: closeParts[1], second: closeParts[2])
+        
+        openDates.append(calendar.date(
+            bySettingHour: openTimeComponents.hour!,
+            minute: openTimeComponents.minute!,
+            second: openTimeComponents.second!,
+            of: now)!)
+        
+        closeDates.append(calendar.date(
+            bySettingHour: closeTimeComponents.hour!,
+            minute: closeTimeComponents.minute!,
+            second: closeTimeComponents.second!,
+            of: now)!)
+    }
     
     // If the closing time is less than or equal to the opening time, it's probably midnight and means either open until midnight
     // or open 24/7, in the case of Bytes.
-    if closeDate <= openDate {
-        closeDate = calendar.date(byAdding: .day, value: 1, to: closeDate)!
+    for i in 0..<closeDates.count {
+        if closeDates[i] <= openDates[i] {
+            closeDates[i] = calendar.date(byAdding: .day, value: 1, to: closeDates[i])!
+        }
     }
     
     // This can probably be done in a cleaner way but it's okay for now. If the location is open but the close date is within the next
     // 30 minutes, label it as closing soon, and do the opposite if it's closed but the open date is within the next 30 minutes.
-    let isOpen = (now >= openDate && now <= closeDate)
-    let openStatus: openStatus
-    if isOpen {
-        if closeDate < calendar.date(byAdding: .minute, value: 30, to: now)! {
-            openStatus = .closingSoon
+    var openStatus: openStatus = .closed
+    for i in 0..<openDates.count {
+        let isOpen = (now >= openDates[i] && now <= closeDates[i])
+        if isOpen {
+            if closeDates[i] < calendar.date(byAdding: .minute, value: 30, to: now)! {
+                openStatus = .closingSoon
+                break
+            } else {
+                openStatus = .open
+                break
+            }
         } else {
-            openStatus = .open
+            if openDates[i] < calendar.date(byAdding: .minute, value: 30, to: now)! {
+                openStatus = .openingSoon
+                break
+            } else {
+                openStatus = .closed
+            }
         }
-    } else {
-        if openDate < calendar.date(byAdding: .minute, value: 30, to: now)! {
-            openStatus = .openingSoon
-        } else {
-            openStatus = .closed
-        }
+    }
+    
+    var diningTimes: [DiningTimes] = []
+    for i in 0..<openDates.count {
+        diningTimes.append(DiningTimes(openTime: openDates[i], closeTime: closeDates[i]))
     }
     
     return DiningInfo(
         id: location.id,
         name: location.name,
-        openTime: openDate,
-        closeTime: closeDate,
+        diningTimes: diningTimes,
         open: openStatus)
 }

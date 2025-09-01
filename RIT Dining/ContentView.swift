@@ -9,7 +9,7 @@ import SwiftUI
 
 struct Location: Hashable {
     let name: String
-    let todaysHours: String
+    let todaysHours: [String]
     let isOpen: openStatus
 }
 
@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var rotationDegrees: Double = 0
     @State private var diningLocations: [Location] = []
+    @State private var lastRefreshed: Date?
     
     private var animation: Animation {
         .linear
@@ -43,14 +44,15 @@ struct ContentView: View {
                         
                         // Parse the open status and times to create the hours string. If either time is missing, assume it has no openings
                         // and use "Not Open Today". If there are times, then set those to be displayed.
-                        let todaysHours: String
-                        if diningInfo.openTime == .none || diningInfo.closeTime == .none {
-                            todaysHours = "Not Open Today"
+                        var todaysHours: [String] = []
+                        if diningInfo.diningTimes == .none {
+                            todaysHours = ["Not Open Today"]
                         } else {
-                            print("Open:", display.string(from: diningInfo.openTime!),
-                                  "Close:", display.string(from: diningInfo.closeTime!))
-                            
-                            todaysHours = "\(display.string(from: diningInfo.openTime!)) - \(display.string(from: diningInfo.closeTime!))"
+                            for time in diningInfo.diningTimes! {
+                                print("Open:", display.string(from: time.openTime),
+                                      "Close:", display.string(from: time.closeTime))
+                                todaysHours.append("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
+                            }
                         }
                         DispatchQueue.global().sync {
                             newDiningLocations.append(
@@ -60,6 +62,7 @@ struct ContentView: View {
                                     isOpen: diningInfo.open
                                 )
                             )
+                            lastRefreshed = Date()
                         }
                     }
                     DispatchQueue.global().sync {
@@ -91,26 +94,40 @@ struct ContentView: View {
                 }
                 .padding()
             } else {
-                Form {
-                    ForEach(diningLocations, id: \.self) { location in
-                        VStack(alignment: .leading) {
-                            Text(location.name)
-                            Text(location.todaysHours)
-                            switch location.isOpen {
-                            case .open:
-                                Text("Open")
-                                    .foregroundStyle(.green)
-                            case .closed:
-                                Text("Closed")
-                                    .foregroundStyle(.red)
-                            case .openingSoon:
-                                Text("Opening Soon")
-                                    .foregroundStyle(.orange)
-                            case .closingSoon:
-                                Text("Closing Soon")
-                                    .foregroundStyle(.orange)
+                VStack() {
+                    List {
+                        Section(content: {
+                            ForEach(diningLocations, id: \.self) { location in
+                                VStack(alignment: .leading) {
+                                    Text(location.name)
+                                    ForEach(location.todaysHours, id: \.self) { hours in
+                                        Text(hours)
+                                    }
+                                    switch location.isOpen {
+                                    case .open:
+                                        Text("Open")
+                                            .foregroundStyle(.green)
+                                    case .closed:
+                                        Text("Closed")
+                                            .foregroundStyle(.red)
+                                    case .openingSoon:
+                                        Text("Opening Soon")
+                                            .foregroundStyle(.orange)
+                                    case .closingSoon:
+                                        Text("Closing Soon")
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
                             }
-                        }
+                        }, footer: {
+                            if let lastRefreshed {
+                                VStack(alignment: .center) {
+                                    Text("Last refreshed: \(lastRefreshed.formatted())")
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                        })
                     }
                 }
                 .navigationTitle("RIT Dining")
