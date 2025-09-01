@@ -2,7 +2,7 @@
 //  RIT_DiningApp.swift
 //  RIT Dining
 //
-//  Created by Campbell Bagley on 8/31/25.
+//  Created by Campbell on 8/31/25.
 //
 
 import SwiftUI
