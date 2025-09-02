@@ -22,8 +22,16 @@ struct SafariView: UIViewControllerRepresentable {
 }
 
 struct DetailView: View {
-    @State var location: Location
+    @State var location: DiningLocation
     @State private var showingSafari: Bool = false
+    
+    private let display: DateFormatter = {
+        let display = DateFormatter()
+        display.timeZone = TimeZone(identifier: "America/New_York")
+        display.dateStyle = .none
+        display.timeStyle = .short
+        return display
+    }()
     
     var body: some View {
         ScrollView {
@@ -34,7 +42,7 @@ struct DetailView: View {
                     .font(.title2)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .top) {
-                    switch location.isOpen {
+                    switch location.open {
                     case .open:
                         Text("Open")
                             .foregroundStyle(.green)
@@ -49,8 +57,13 @@ struct DetailView: View {
                             .foregroundStyle(.orange)
                     }
                     VStack {
-                        ForEach(location.todaysHours, id: \.self) { hours in
-                            Text(hours)
+                        if let times = location.diningTimes, !times.isEmpty {
+                            ForEach(times, id: \.self) { time in
+                                Text("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("Not Open Today")
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -80,11 +93,12 @@ struct DetailView: View {
 }
 
 #Preview {
-    DetailView(location: Location(
+    DetailView(location: DiningLocation(
+        id: 0,
         name: "Example",
         summary: "A Place",
         desc: "A long description of the place",
         mapsUrl: "https://example.com",
-        todaysHours: ["Now - Later"],
-        isOpen: .open))
+        diningTimes: [DiningTimes(openTime: Date(), closeTime: Date())],
+        open: .open))
 }

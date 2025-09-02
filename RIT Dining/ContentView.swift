@@ -7,24 +7,24 @@
 
 import SwiftUI
 
-struct Location: Hashable {
-    let name: String
-    let summary: String
-    let desc: String
-    let mapsUrl: String
-    let todaysHours: [String]
-    let isOpen: openStatus
-}
-
 struct LocationList: View {
-    let diningLocations: [Location]
+    let diningLocations: [DiningLocation]
+    
+    // I forgot this before and was really confused why all of the times were in UTC.
+    private let display: DateFormatter = {
+        let display = DateFormatter()
+        display.timeZone = TimeZone(identifier: "America/New_York")
+        display.dateStyle = .none
+        display.timeStyle = .short
+        return display
+    }()
     
     var body: some View {
         ForEach(diningLocations, id: \.self) { location in
             NavigationLink(destination: DetailView(location: location)) {
                 VStack(alignment: .leading) {
                     Text(location.name)
-                    switch location.isOpen {
+                    switch location.open {
                     case .open:
                         Text("Open")
                             .foregroundStyle(.green)
@@ -38,8 +38,13 @@ struct LocationList: View {
                         Text("Closing Soon")
                             .foregroundStyle(.orange)
                     }
-                    ForEach(location.todaysHours, id: \.self) { hours in
-                        Text(hours)
+                    if let times = location.diningTimes, !times.isEmpty {
+                        ForEach(times, id: \.self) { time in
+                            Text("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Not Open Today")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -51,7 +56,7 @@ struct LocationList: View {
 struct ContentView: View {
     @State private var isLoading = true
     @State private var rotationDegrees: Double = 0
-    @State private var diningLocations: [Location] = []
+    @State private var diningLocations: [DiningLocation] = []
     @State private var lastRefreshed: Date?
     @State private var searchText: String = ""
     @State private var openLocationsOnly: Bool = false
@@ -64,49 +69,21 @@ struct ContentView: View {
     
     // Asynchronously fetch the data for all of the locations and parse their data to display it.
     private func getDiningData() {
-        var newDiningLocations: [Location] = []
-        getDiningLocation { result in
+        var newDiningLocations: [DiningLocation] = []
+        getAllDiningInfo { result in
             DispatchQueue.global().async {
                 switch result {
                 case .success(let locations):
                     for i in 0..<locations.locations.count {
                         let diningInfo = getLocationInfo(location: locations.locations[i])
                         print(diningInfo.name)
-                        
-                        // I forgot this before and was really confused why all of the times were in UTC.
-                        let display = DateFormatter()
-                        display.timeZone = TimeZone(identifier: "America/New_York")
-                        display.dateStyle = .none
-                        display.timeStyle = .short
-                        
-                        // Parse the open status and times to create the hours string. If either time is missing, assume it has no openings
-                        // and use "Not Open Today". If there are times, then set those to be displayed.
-                        var todaysHours: [String] = []
-                        if diningInfo.diningTimes == .none {
-                            todaysHours = ["Not Open Today"]
-                        } else {
-                            for time in diningInfo.diningTimes! {
-                                print("Open:", display.string(from: time.openTime),
-                                      "Close:", display.string(from: time.closeTime))
-                                todaysHours.append("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
-                            }
-                        }
                         DispatchQueue.global().sync {
-                            newDiningLocations.append(
-                                Location(
-                                    name: diningInfo.name,
-                                    summary: diningInfo.summary,
-                                    desc: diningInfo.desc,
-                                    mapsUrl: diningInfo.mapsUrl,
-                                    todaysHours: todaysHours,
-                                    isOpen: diningInfo.open
-                                )
-                            )
-                            lastRefreshed = Date()
+                            newDiningLocations.append(diningInfo)
                         }
                     }
                     DispatchQueue.global().sync {
                         diningLocations = newDiningLocations
+                        lastRefreshed = Date()
                         isLoading = false
                     }
                 case .failure(let error): print(error)
@@ -117,10 +94,10 @@ struct ContentView: View {
     
     // Allow for searching the list and hiding closed locations. Gets a list of locations that match the search and a list that match
     // the open only filter (.open and .closingSoon) and then returns the ones that match both lists.
-    private var filteredLocations: [Location] {
+    private var filteredLocations: [DiningLocation] {
         diningLocations.filter { location in
             let searchedLocations = searchText.isEmpty || location.name.localizedCaseInsensitiveContains(searchText)
-            let openLocations = !openLocationsOnly || location.isOpen == .open || location.isOpen == .closingSoon
+            let openLocations = !openLocationsOnly || location.open == .open || location.open == .closingSoon
             return searchedLocations && openLocations
         }
     }
