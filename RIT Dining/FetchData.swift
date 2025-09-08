@@ -11,13 +11,17 @@ enum InvalidHTTPError: Error {
     case invalid
 }
 
-// This code came from another project of mine and was used to fetch the GitHub API for update checking. I just copied it here, but it can
-// probably be made simpler for this use case.
-func getAllDiningInfo(completionHandler: @escaping (Result<DiningLocationsParser, Error>) -> Void) {
+// This API requesting code came from another project of mine and was used to fetch the GitHub API for update checking. I just copied it
+// here, but it can probably be made simpler for this use case.
+
+// Get information for all dining locations.
+func getAllDiningInfo(date: String?, completionHandler: @escaping (Result<DiningLocationsParser, Error>) -> Void) {
     // The endpoint requires that you specify a date, so get today's.
-    let date_string = Date().formatted(.iso8601
-        .year().month().day()
-        .dateSeparator(.dash))
+    let date_string: String = if let date { date } else {
+        Date().formatted(.iso8601
+            .year().month().day()
+            .dateSeparator(.dash))
+    }
     let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-all?date=\(date_string)"
     
     guard let url = URL(string: url_string) else {
@@ -44,7 +48,42 @@ func getAllDiningInfo(completionHandler: @escaping (Result<DiningLocationsParser
     }.resume()
 }
 
-func getLocationInfo(location: DiningLocationParser) -> DiningLocation {
+// Get information for just one dining location based on its location ID.
+func getSingleDiningInfo(date: String?, locationId: Int, completionHandler: @escaping (Result<DiningLocationParser, Error>) -> Void) {
+    // The current date and the location ID are required to get information for just one location.
+    let date_string: String = if let date { date } else {
+        Date().formatted(.iso8601
+            .year().month().day()
+            .dateSeparator(.dash))
+    }
+    let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-single?date=\(date_string)&locId=\(locationId)"
+    print("making request to \(url_string)")
+    
+    guard let url = URL(string: url_string) else {
+        print("Invalid URL")
+        return
+    }
+    let request = URLRequest(url: url)
+    
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        guard case .none = error else { return }
+        
+        guard let data = data else {
+            print("Data error.")
+            return
+        }
+        
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            completionHandler(.failure(InvalidHTTPError.invalid))
+            return
+        }
+        
+        let decoded: Result<DiningLocationParser, Error> = Result(catching: { try JSONDecoder().decode(DiningLocationParser.self, from: data) })
+        completionHandler(decoded)
+    }.resume()
+}
+
+func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     print("beginning parse for \(location.name)")
     
     // The descriptions sometimes have HTML <br /> tags despite also having \n. Those need to be removed.
@@ -59,7 +98,8 @@ func getLocationInfo(location: DiningLocationParser) -> DiningLocation {
             desc: desc,
             mapsUrl: location.mapsUrl,
             diningTimes: nil,
-            open: .closed)
+            open: .closed,
+            visitingChefs: nil)
     }
     
     var openStrings: [String] = []
@@ -78,7 +118,8 @@ func getLocationInfo(location: DiningLocationParser) -> DiningLocation {
                     desc: desc,
                     mapsUrl: location.mapsUrl,
                     diningTimes: nil,
-                    open: .closed)
+                    open: .closed,
+                    visitingChefs: nil)
             }
             openStrings.append(exceptions[0].startTime)
             closeStrings.append(exceptions[0].endTime)
@@ -153,6 +194,23 @@ func getLocationInfo(location: DiningLocationParser) -> DiningLocation {
         }
     }
     
+    // Parse the "menus" array and keep track of visiting chefs at this location, if there are any. If not then we can just save nil.
+    // Eventually this will parse out the times, but that's complicated because that data is formatted poorly and inconsistently and
+    // I'm not interested in messing with that quite yet.
+    let visitingChefs: [VisitngChef]?
+    if !location.menus.isEmpty {
+        var chefs: [VisitngChef] = []
+        for menu in location.menus {
+            if menu.category == "Visiting Chef" {
+                print("found visiting chef: \(menu.name)")
+                chefs.append(VisitngChef(name: menu.name, description: menu.description!))
+            }
+        }
+        visitingChefs = chefs
+    } else {
+        visitingChefs = nil
+    }
+    
     return DiningLocation(
         id: location.id,
         name: location.name,
@@ -160,5 +218,6 @@ func getLocationInfo(location: DiningLocationParser) -> DiningLocation {
         desc: desc,
         mapsUrl: location.mapsUrl,
         diningTimes: diningTimes,
-        open: openStatus)
+        open: openStatus,
+        visitingChefs: visitingChefs)
 }

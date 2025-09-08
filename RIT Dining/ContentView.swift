@@ -70,12 +70,12 @@ struct ContentView: View {
     // Asynchronously fetch the data for all of the locations and parse their data to display it.
     private func getDiningData() {
         var newDiningLocations: [DiningLocation] = []
-        getAllDiningInfo { result in
+        getAllDiningInfo(date: nil) { result in
             DispatchQueue.global().async {
                 switch result {
                 case .success(let locations):
                     for i in 0..<locations.locations.count {
-                        let diningInfo = getLocationInfo(location: locations.locations[i])
+                        let diningInfo = parseLocationInfo(location: locations.locations[i])
                         print(diningInfo.name)
                         DispatchQueue.global().sync {
                             newDiningLocations.append(diningInfo)
@@ -123,6 +123,13 @@ struct ContentView: View {
             } else {
                 VStack() {
                     List {
+                        if searchText.isEmpty {
+                            Section(content: {
+                                NavigationLink(destination: VisitingChefs(diningLocations: diningLocations)) {
+                                    Text("Today's Visiting Chefs")
+                                }
+                            })
+                        }
                         Section(content: {
                             LocationList(diningLocations: filteredLocations)
                         }, footer: {

@@ -11,7 +11,7 @@ import Foundation
 // be improved later when I feel like it.
 struct DiningLocationParser: Decodable {
     // An individual "event", which is just an open period for the location.
-    struct Events: Decodable {
+    struct Event: Decodable {
         // Hour exceptions for the given event.
         struct HoursException: Decodable {
             let id: Int
@@ -26,13 +26,21 @@ struct DiningLocationParser: Decodable {
         let endTime: String
         let exceptions: [HoursException]?
     }
+    // An individual "menu", which can be either a daily special item or a visitng chef. Description needs to be optional because
+    // visiting chefs have descriptions but specials do not.
+    struct Menu: Decodable {
+        let name: String
+        let description: String?
+        let category: String
+    }
     // Other basic information to read from a location's JSON that we'll need later.
     let id: Int
     let name: String
     let summary: String
     let description: String
     let mapsUrl: String
-    let events: [Events]
+    let events: [Event]
+    let menus: [Menu]
 }
 
 // Struct that probably doesn't need to exist but this made parsing the list of location responses easy.
@@ -54,6 +62,12 @@ struct DiningTimes: Equatable, Hashable {
     var closeTime: Date
 }
 
+// A visitng chef present at a location.
+struct VisitngChef: Equatable, Hashable {
+    let name: String
+    let description: String
+}
+
 // The basic information about a dining location needed to display it in the app after parsing is finished.
 struct DiningLocation: Identifiable, Hashable {
     let id: Int
@@ -63,4 +77,5 @@ struct DiningLocation: Identifiable, Hashable {
     let mapsUrl: String
     let diningTimes: [DiningTimes]?
     let open: OpenStatus
+    let visitingChefs: [VisitngChef]?
 }
