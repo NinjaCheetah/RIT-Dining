@@ -62,10 +62,27 @@ struct DiningTimes: Equatable, Hashable {
     var closeTime: Date
 }
 
+// Enum to represent the five possible states a visiting chef can be in.
+enum VisitingChefStatus {
+    case hereNow
+    case gone
+    case arrivingLater
+    case arrivingSoon
+    case leavingSoon
+}
+
 // A visitng chef present at a location.
-struct VisitngChef: Equatable, Hashable {
+struct VisitingChef: Equatable, Hashable {
     let name: String
     let description: String
+    var openTime: Date
+    var closeTime: Date
+    let status: VisitingChefStatus
+}
+
+struct DailySpecial: Equatable, Hashable {
+    let name: String
+    let type: String
 }
 
 // The basic information about a dining location needed to display it in the app after parsing is finished.
@@ -77,5 +94,6 @@ struct DiningLocation: Identifiable, Hashable {
     let mapsUrl: String
     let diningTimes: [DiningTimes]?
     let open: OpenStatus
-    let visitingChefs: [VisitngChef]?
+    let visitingChefs: [VisitingChef]?
+    let dailySpecials: [DailySpecial]?
 }

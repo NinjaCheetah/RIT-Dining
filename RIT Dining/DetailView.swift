@@ -8,19 +8,6 @@
 import SwiftUI
 import SafariServices
 
-// Gross disgusting UIKit code :(
-// There isn't a direct way to use integrated Safari from SwiftUI, except maybe in iOS 26? I'm not targeting that though so I must fall
-// back on UIKit stuff.
-struct SafariView: UIViewControllerRepresentable {
-    let url: URL
-
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        SFSafariViewController(url: url)
-    }
-
-    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
-}
-
 struct DetailView: View {
     @State var location: DiningLocation
     @State private var isLoading: Bool = true
@@ -111,9 +98,19 @@ struct DetailView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading) {
-                    Text(location.name)
-                        .font(.title)
-                        .fontWeight(.bold)
+                    HStack(alignment: .center) {
+                        Text(location.name)
+                            .font(.title)
+                            .fontWeight(.bold)
+                        Spacer()
+                        Button(action: {
+                            showingSafari = true
+                        }) {
+                            Image(systemName: "map")
+                                .foregroundStyle(.accent)
+                                .font(.title3)
+                        }
+                    }
                     Text(location.summary)
                         .font(.title2)
                         .foregroundStyle(.secondary)
@@ -151,13 +148,60 @@ struct DetailView: View {
                             }
                         }
                     }
-                    .padding(.bottom, 10)
-                    Button(action: {
-                        showingSafari = true
-                    }) {
-                        Text("View on Map")
+                    .padding(.bottom, 12)
+                    if let visitingChefs = location.visitingChefs, !visitingChefs.isEmpty {
+                        VStack(alignment: .leading) {
+                            Text("Today's Visiting Chefs")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                            ForEach(visitingChefs, id: \.self) { chef in
+                                HStack(alignment: .top) {
+                                    Text(chef.name)
+                                    Spacer()
+                                    VStack(alignment: .trailing) {
+                                        switch chef.status {
+                                        case .hereNow:
+                                            Text("Here Now")
+                                                .foregroundStyle(.green)
+                                        case .gone:
+                                            Text("Left For Today")
+                                                .foregroundStyle(.red)
+                                        case .arrivingLater:
+                                            Text("Arriving Later")
+                                                .foregroundStyle(.red)
+                                        case .arrivingSoon:
+                                            Text("Arriving Soon")
+                                                .foregroundStyle(.orange)
+                                        case .leavingSoon:
+                                            Text("Leaving Soon")
+                                                .foregroundStyle(.orange)
+                                        }
+                                        Text("\(display.string(from: chef.openTime)) - \(display.string(from: chef.closeTime))")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Divider()
+                            }
+                        }
+                        .padding(.bottom, 12)
                     }
-                    .padding(.bottom, 10)
+                    if let dailySpecials = location.dailySpecials, !dailySpecials.isEmpty {
+                        VStack(alignment: .leading) {
+                            Text("Today's Daily Specials")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                            ForEach(dailySpecials, id: \.self) { special in
+                                HStack(alignment: .top) {
+                                    Text(special.name)
+                                    Spacer()
+                                    Text(special.type)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Divider()
+                            }
+                        }
+                        .padding(.bottom, 12)
+                    }
                     VStack(alignment: .leading) {
                         Text("This Week's Hours")
                             .font(.title3)
@@ -176,7 +220,8 @@ struct DetailView: View {
                             Divider()
                         }
                     }
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 12)
+                    // Ideally I'd like this text to be justified to more effectively use the screen space.
                     Text(location.desc)
                         .font(.body)
                         .padding(.bottom, 10)
@@ -204,5 +249,6 @@ struct DetailView: View {
         mapsUrl: "https://example.com",
         diningTimes: [DiningTimes(openTime: Date(), closeTime: Date())],
         open: .open,
-        visitingChefs: nil))
+        visitingChefs: nil,
+        dailySpecials: nil))
 }

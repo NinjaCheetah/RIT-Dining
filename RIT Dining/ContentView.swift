@@ -82,7 +82,7 @@ struct ContentView: View {
                         }
                     }
                     DispatchQueue.global().sync {
-                        diningLocations = newDiningLocations
+                        diningLocations = newDiningLocations.sorted { $0.name < $1.name }
                         lastRefreshed = Date()
                         isLoading = false
                     }
@@ -125,7 +125,7 @@ struct ContentView: View {
                     List {
                         if searchText.isEmpty {
                             Section(content: {
-                                NavigationLink(destination: VisitingChefs(diningLocations: diningLocations)) {
+                                NavigationLink(destination: VisitingChefs()) {
                                     Text("Today's Visiting Chefs")
                                 }
                             })

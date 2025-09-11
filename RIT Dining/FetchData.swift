@@ -17,11 +17,7 @@ enum InvalidHTTPError: Error {
 // Get information for all dining locations.
 func getAllDiningInfo(date: String?, completionHandler: @escaping (Result<DiningLocationsParser, Error>) -> Void) {
     // The endpoint requires that you specify a date, so get today's.
-    let date_string: String = if let date { date } else {
-        Date().formatted(.iso8601
-            .year().month().day()
-            .dateSeparator(.dash))
-    }
+    let date_string: String = date ?? getAPIFriendlyDateString(date: Date())
     let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-all?date=\(date_string)"
     
     guard let url = URL(string: url_string) else {
@@ -51,11 +47,7 @@ func getAllDiningInfo(date: String?, completionHandler: @escaping (Result<Dining
 // Get information for just one dining location based on its location ID.
 func getSingleDiningInfo(date: String?, locationId: Int, completionHandler: @escaping (Result<DiningLocationParser, Error>) -> Void) {
     // The current date and the location ID are required to get information for just one location.
-    let date_string: String = if let date { date } else {
-        Date().formatted(.iso8601
-            .year().month().day()
-            .dateSeparator(.dash))
-    }
+    let date_string: String = date ?? getAPIFriendlyDateString(date: Date())
     let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-single?date=\(date_string)&locId=\(locationId)"
     print("making request to \(url_string)")
     
@@ -83,6 +75,26 @@ func getSingleDiningInfo(date: String?, locationId: Int, completionHandler: @esc
     }.resume()
 }
 
+func parseOpenStatus(openTime: Date, closeTime: Date) -> OpenStatus {
+    // This can probably be done a little cleaner but it's okay for now. If the location is open but the close date is within the next
+    // 30 minutes, label it as closing soon, and do the opposite if it's closed but the open date is within the next 30 minutes.
+    let calendar = Calendar.current
+    let now = Date()
+    var openStatus: OpenStatus = .closed
+    if now >= openTime && now <= closeTime {
+        if closeTime < calendar.date(byAdding: .minute, value: 30, to: now)! {
+            openStatus = .closingSoon
+        } else {
+            openStatus = .open
+        }
+    } else if openTime <= calendar.date(byAdding: .minute, value: 30, to: now)! && closeTime > now {
+        openStatus = .openingSoon
+    } else {
+        openStatus = .closed
+    }
+    return openStatus
+}
+
 func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     print("beginning parse for \(location.name)")
     
@@ -99,7 +111,8 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
             mapsUrl: location.mapsUrl,
             diningTimes: nil,
             open: .closed,
-            visitingChefs: nil)
+            visitingChefs: nil,
+            dailySpecials: nil)
     }
     
     var openStrings: [String] = []
@@ -109,24 +122,30 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     // are exceptions, use those times for the day, otherwise we can just use the default times.
     for event in location.events {
         if let exceptions = event.exceptions, !exceptions.isEmpty {
-            // Early return if the exception for the day specifies that the location is closed. Used for things like holidays.
-            if !exceptions[0].open {
-                return DiningLocation(
-                    id: location.id,
-                    name: location.name,
-                    summary: location.summary,
-                    desc: desc,
-                    mapsUrl: location.mapsUrl,
-                    diningTimes: nil,
-                    open: .closed,
-                    visitingChefs: nil)
+            // Only save the exception times if the location is actually open during those times.
+            if exceptions[0].open {
+                openStrings.append(exceptions[0].startTime)
+                closeStrings.append(exceptions[0].endTime)
             }
-            openStrings.append(exceptions[0].startTime)
-            closeStrings.append(exceptions[0].endTime)
         } else {
             openStrings.append(event.startTime)
             closeStrings.append(event.endTime)
         }
+    }
+    
+    // Early return if there are no valid opening times, most likely because the day's exceptions dictate that the location is closed.
+    // Mostly comes into play on holidays.
+    if openStrings.isEmpty || closeStrings.isEmpty {
+        return DiningLocation(
+            id: location.id,
+            name: location.name,
+            summary: location.summary,
+            desc: desc,
+            mapsUrl: location.mapsUrl,
+            diningTimes: nil,
+            open: .closed,
+            visitingChefs: nil,
+            dailySpecials: nil)
     }
     
     // I hate all of this date component nonsense.
@@ -176,17 +195,7 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     // 30 minutes, label it as closing soon, and do the opposite if it's closed but the open date is within the next 30 minutes.
     var openStatus: OpenStatus = .closed
     for i in diningTimes.indices {
-        if now >= diningTimes[i].openTime && now <= diningTimes[i].closeTime {
-            if diningTimes[i].closeTime < calendar.date(byAdding: .minute, value: 30, to: now)! {
-                openStatus = .closingSoon
-            } else {
-                openStatus = .open
-            }
-        } else if diningTimes[i].openTime <= calendar.date(byAdding: .minute, value: 30, to: now)! && diningTimes[i].closeTime > now {
-            openStatus = .openingSoon
-        } else {
-            openStatus = .closed
-        }
+        openStatus = parseOpenStatus(openTime: diningTimes[i].openTime, closeTime: diningTimes[i].closeTime)
         // If the first event pass came back closed, loop again in case a later event has a different status. This is mostly to
         // accurately catch Gracie's multiple open periods each day.
         if openStatus != .closed {
@@ -195,20 +204,92 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     }
     
     // Parse the "menus" array and keep track of visiting chefs at this location, if there are any. If not then we can just save nil.
-    // Eventually this will parse out the times, but that's complicated because that data is formatted poorly and inconsistently and
-    // I'm not interested in messing with that quite yet.
-    let visitingChefs: [VisitngChef]?
+    // The time formats used for visiting chefs are inconsistent and suck so that part of this code might be kind of rough. I can
+    // probably make it a little better but I think most of the blame goes to TigerCenter here.
+    // Also save the daily specials. This is more of a footnote because that's just taking a string and saving it as two strings.
+    let visitingChefs: [VisitingChef]?
+    let dailySpecials: [DailySpecial]?
     if !location.menus.isEmpty {
-        var chefs: [VisitngChef] = []
+        var chefs: [VisitingChef] = []
+        var specials: [DailySpecial] = []
         for menu in location.menus {
             if menu.category == "Visiting Chef" {
                 print("found visiting chef: \(menu.name)")
-                chefs.append(VisitngChef(name: menu.name, description: menu.description!))
+                var name: String = menu.name
+                let splitString = name.split(separator: "(", maxSplits: 1)
+                name = String(splitString[0])
+                // Time parsing nonsense starts here. Extracts the time from a string like "Chef (4-7p.m.)", splits it at the "-",
+                // strips the non-numerical characters from each part, parses it as a number and adds 12 hours as needed, then creates
+                // a Date instance for that time on today's date.
+                let timeStrings = String(splitString[1]).replacingOccurrences(of: ")", with: "").split(separator: "-", maxSplits: 1)
+                print("raw open range: \(timeStrings)")
+                let openTime: Date
+                let closeTime: Date
+                if let openString = timeStrings.first?.trimmingCharacters(in: .whitespaces) {
+                    // If the time is NOT in the morning, add 12 hours.
+                    let openHour = if openString.contains("a.m") {
+                        Int(openString.filter("0123456789".contains))!
+                    } else {
+                        Int(openString)! + 12
+                    }
+                    let openTimeComponents = DateComponents(hour: openHour, minute: 0, second: 0)
+                    openTime = calendar.date(
+                        bySettingHour: openTimeComponents.hour!,
+                        minute: openTimeComponents.minute!,
+                        second: openTimeComponents.second!,
+                        of: now)!
+                } else {
+                    break
+                }
+                if let closeString = timeStrings.last?.filter("0123456789".contains) {
+                    // I've chosen to assume that no visiting chef will ever close in the morning. This could bad choice but I have
+                    // yet to see any evidence of a visiting chef leaving before noon so far.
+                    let closeHour = Int(closeString)! + 12
+                    let closeTimeComponents = DateComponents(hour: closeHour, minute: 0, second: 0)
+                    closeTime = calendar.date(
+                        bySettingHour: closeTimeComponents.hour!,
+                        minute: closeTimeComponents.minute!,
+                        second: closeTimeComponents.second!,
+                        of: now)!
+                } else {
+                    break
+                }
+                
+                // Parse the chef's status, mapping the OpenStatus to a VisitingChefStatus.
+                let visitngChefStatus: VisitingChefStatus = switch parseOpenStatus(openTime: openTime, closeTime: closeTime) {
+                case .open:
+                        .hereNow
+                case .closed:
+                    if now < openTime {
+                        .arrivingLater
+                    } else {
+                        .gone
+                    }
+                case .openingSoon:
+                        .arrivingSoon
+                case .closingSoon:
+                        .leavingSoon
+                }
+                
+                chefs.append(VisitingChef(
+                    name: name,
+                    description: menu.description ?? "No description available", // Some don't have descriptions, apparently.
+                    openTime: openTime,
+                    closeTime: closeTime,
+                    status: visitngChefStatus))
+            } else if menu.category == "Daily Specials" {
+                print("found daily special: \(menu.name)")
+                let splitString = menu.name.split(separator: "(", maxSplits: 1)
+                specials.append(DailySpecial(
+                    name: String(splitString[0]),
+                    type: String(splitString.count > 1 ? String(splitString[1]) : "").replacingOccurrences(of: ")", with: "")))
             }
         }
         visitingChefs = chefs
+        dailySpecials = specials
     } else {
         visitingChefs = nil
+        dailySpecials = nil
     }
     
     return DiningLocation(
@@ -219,5 +300,6 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
         mapsUrl: location.mapsUrl,
         diningTimes: diningTimes,
         open: openStatus,
-        visitingChefs: visitingChefs)
+        visitingChefs: visitingChefs,
+        dailySpecials: dailySpecials)
 }
