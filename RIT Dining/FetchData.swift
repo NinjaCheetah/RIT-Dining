@@ -27,10 +27,13 @@ func getAllDiningInfo(date: String?, completionHandler: @escaping (Result<Dining
     let request = URLRequest(url: url)
     
     URLSession.shared.dataTask(with: request) { data, response, error in
-        guard case .none = error else { return }
+        if let error = error {
+            completionHandler(.failure(error))
+            return
+        }
         
         guard let data = data else {
-            print("Data error.")
+            completionHandler(.failure(URLError(.badServerResponse)))
             return
         }
         
@@ -82,7 +85,11 @@ func parseOpenStatus(openTime: Date, closeTime: Date) -> OpenStatus {
     let now = Date()
     var openStatus: OpenStatus = .closed
     if now >= openTime && now <= closeTime {
-        if closeTime < calendar.date(byAdding: .minute, value: 30, to: now)! {
+        // This is basically just for Bytes, it checks the case where the open and close times are exactly 24 hours apart, which is
+        // only true for 24-hour locations.
+        if closeTime == calendar.date(byAdding: .day, value: 1, to: openTime)! {
+            openStatus = .open
+        } else if closeTime < calendar.date(byAdding: .minute, value: 30, to: now)! {
             openStatus = .closingSoon
         } else {
             openStatus = .open

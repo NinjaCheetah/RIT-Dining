@@ -13,7 +13,7 @@ struct IdentifiableURL: Identifiable {
 }
 
 struct VisitingChefs: View {
-    @State private var diningLocations: [DiningLocation] = []
+    @State private var locationsWithChefs: [DiningLocation] = []
     @State private var isLoading: Bool = true
     @State private var rotationDegrees: Double = 0
     @State private var daySwitcherRotation: Double = 0
@@ -46,11 +46,14 @@ struct VisitingChefs: View {
                         let diningInfo = parseLocationInfo(location: locations.locations[i])
                         print(diningInfo.name)
                         DispatchQueue.global().sync {
-                            newDiningLocations.append(diningInfo)
+                            // Only save the locations that actually have visiting chefs to avoid extra iterations later.
+                            if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {
+                                newDiningLocations.append(diningInfo)
+                            }
                         }
                     }
                     DispatchQueue.global().sync {
-                        diningLocations = newDiningLocations
+                        locationsWithChefs = newDiningLocations
                         isLoading = false
                     }
                 case .failure(let error): print(error)
@@ -64,12 +67,12 @@ struct VisitingChefs: View {
         let dateString: String
         if !isTomorrow {
             dateString = getAPIFriendlyDateString(date: Date())
-            print("default really really really long string to make this line more obvious for debugging: \(dateString)")
+            print("fetching visiting chefs for date \(dateString) (today)")
         } else {
             let calendar = Calendar.current
             let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
             dateString = getAPIFriendlyDateString(date: tomorrow)
-            print("really really really long string to make this line more obvious for debugging: \(dateString)")
+            print("fetching visiting chefs for date \(dateString) (tomorrow)")
         }
         getDiningDataForDate(date: dateString)
     }
@@ -123,7 +126,12 @@ struct VisitingChefs: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 25)
                 } else {
-                    ForEach(diningLocations, id: \.self) { location in
+                    if locationsWithChefs.isEmpty {
+                        Text("No visiting chefs today")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(locationsWithChefs, id: \.self) { location in
                         if let visitingChefs = location.visitingChefs, !visitingChefs.isEmpty {
                             VStack(alignment: .leading) {
                                 Divider()
@@ -174,15 +182,13 @@ struct VisitingChefs: View {
                                     Text(chef.description)
                                 }
                             }
-                            .padding(.bottom, 15)
+                            .padding(.bottom, 20)
                         }
                     }
                 }
             }
             .padding(.horizontal, 8)
         }
-        .navigationTitle("Visiting Chefs")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $safariUrl) { url in
             SafariView(url: url.url)
         }

@@ -54,7 +54,8 @@ struct LocationList: View {
 }
 
 struct ContentView: View {
-    @State private var isLoading = true
+    @State private var isLoading: Bool = true
+    @State private var loadFailed: Bool = false
     @State private var rotationDegrees: Double = 0
     @State private var diningLocations: [DiningLocation] = []
     @State private var lastRefreshed: Date?
@@ -82,11 +83,25 @@ struct ContentView: View {
                         }
                     }
                     DispatchQueue.global().sync {
-                        diningLocations = newDiningLocations.sorted { $0.name < $1.name }
+                        // Need to sort the locations alphabetically because they get returned in a completely arbitrary order. Also
+                        // need to do so while ignoring the word "the" because a bunch of locations have it and it's not helpful to put
+                        // those all down in "T".
+                        diningLocations = newDiningLocations.sorted { firstLoc, secondLoc in
+                            func removeThe(_ name: String) -> String {
+                                let lowercased = name.lowercased()
+                                if lowercased.hasPrefix("the ") {
+                                    return String(name.dropFirst(4))
+                                }
+                                return name
+                            }
+                            return removeThe(firstLoc.name).localizedCaseInsensitiveCompare(removeThe(secondLoc.name)) == .orderedAscending
+                        }
                         lastRefreshed = Date()
                         isLoading = false
                     }
-                case .failure(let error): print(error)
+                case .failure(let error):
+                    print(error)
+                    loadFailed = true
                 }
             }
         }
@@ -106,18 +121,35 @@ struct ContentView: View {
         NavigationStack() {
             if isLoading {
                 VStack {
-                    Image(systemName: "fork.knife.circle")
-                        .resizable()
-                        .frame(width: 75, height: 75)
-                        .foregroundStyle(.accent)
-                        .rotationEffect(.degrees(rotationDegrees))
-                        .onAppear {
-                            withAnimation(animation) {
-                                rotationDegrees = 360.0
-                            }
+                    if loadFailed {
+                        Image(systemName: "wifi.exclamationmark.circle")
+                            .resizable()
+                            .frame(width: 75, height: 75)
+                            .foregroundStyle(.accent)
+                        Text("An error occurred while fetching dining data. Please check your network connection and try again.")
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button(action: {
+                            loadFailed = false
+                            getDiningData()
+                        }) {
+                            Label("Refresh", systemImage: "arrow.clockwise")
                         }
-                    Text("Loading...")
-                        .foregroundStyle(.secondary)
+                        .padding(.top, 10)
+                    } else {
+                        Image(systemName: "fork.knife.circle")
+                            .resizable()
+                            .frame(width: 75, height: 75)
+                            .foregroundStyle(.accent)
+                            .rotationEffect(.degrees(rotationDegrees))
+                            .onAppear {
+                                withAnimation(animation) {
+                                    rotationDegrees = 360.0
+                                }
+                            }
+                        Text("Loading...")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding()
             } else {
@@ -158,6 +190,11 @@ struct ContentView: View {
                             }
                             Toggle(isOn: $openLocationsOnly) {
                                 Label("Hide Closed Locations", systemImage: "eye.slash")
+                            }
+                            NavigationLink(destination: AboutView()) {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.accentColor)
+                                Text("About")
                             }
                         } label: {
                             Image(systemName: "slider.horizontal.3")
