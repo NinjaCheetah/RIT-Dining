@@ -66,7 +66,7 @@ struct DonationView: View {
                 }
                 .buttonStyle(.plain)
                 Button(action: {
-                    openURL(URL(string: "paypal.me/NinjaCheetahX")!)
+                    openURL(URL(string: "https://paypal.me/NinjaCheetahX")!)
                 }) {
                     HStack(alignment: .center) {
                         Image("paypalLogo")

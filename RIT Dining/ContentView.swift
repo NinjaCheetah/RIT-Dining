@@ -54,6 +54,8 @@ struct LocationList: View {
 }
 
 struct ContentView: View {
+    // Stored in AppStorage because making this setting persistent makes sense. Some people only ever want to see open locations.
+    @AppStorage("openLocationsOnly") var openLocationsOnly: Bool = false
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @State private var showingDonationSheet: Bool = false
@@ -61,7 +63,6 @@ struct ContentView: View {
     @State private var diningLocations: [DiningLocation] = []
     @State private var lastRefreshed: Date?
     @State private var searchText: String = ""
-    @State private var openLocationsOnly: Bool = false
     
     private var animation: Animation {
         .linear
