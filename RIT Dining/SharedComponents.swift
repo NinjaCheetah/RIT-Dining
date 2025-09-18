@@ -30,3 +30,10 @@ func getAPIFriendlyDateString(date: Date) -> String {
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter.string(from: date)
 }
+
+
+// Custom view extension that just applies modifiers in a block to the object it's applied to. Mostly useful for splitting up conditional
+// modifiers that should only be applied for certain OS versions.
+extension View {
+    func apply<V: View>(@ViewBuilder _ block: (Self) -> V) -> V { block(self) }
+}

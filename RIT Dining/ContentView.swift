@@ -56,6 +56,7 @@ struct LocationList: View {
 struct ContentView: View {
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
+    @State private var showingDonationSheet: Bool = false
     @State private var rotationDegrees: Double = 0
     @State private var diningLocations: [DiningLocation] = []
     @State private var lastRefreshed: Date?
@@ -155,7 +156,15 @@ struct ContentView: View {
             } else {
                 VStack() {
                     List {
-                        if searchText.isEmpty {
+                        // Always show the visiting chef link on iOS 26+, since the bottom mounted search bar makes this work okay. On
+                        // older iOS versions, hide the button while searching to make it easier to go through search results.
+                        if #unavailable(iOS 26.0), searchText.isEmpty {
+                            Section(content: {
+                                NavigationLink(destination: VisitingChefs()) {
+                                    Text("Today's Visiting Chefs")
+                                }
+                            })
+                        } else {
                             Section(content: {
                                 NavigationLink(destination: VisitingChefs()) {
                                     Text("Today's Visiting Chefs")
@@ -196,8 +205,14 @@ struct ContentView: View {
                                     .foregroundColor(.accentColor)
                                 Text("About")
                             }
+                            Button(action: {
+                                showingDonationSheet = true
+                            }) {
+                                Label("Donate", systemImage: "heart")
+                            }
                         } label: {
                             Image(systemName: "slider.horizontal.3")
+                                .foregroundStyle(.accent)
                         }
                     }
                 }
@@ -205,6 +220,9 @@ struct ContentView: View {
         }
         .onAppear {
             getDiningData()
+        }
+        .sheet(isPresented: $showingDonationSheet) {
+            DonationView()
         }
     }
 }
