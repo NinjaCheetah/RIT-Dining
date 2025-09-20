@@ -79,7 +79,6 @@ struct ContentView: View {
                 case .success(let locations):
                     for i in 0..<locations.locations.count {
                         let diningInfo = parseLocationInfo(location: locations.locations[i])
-                        print(diningInfo.name)
                         DispatchQueue.global().sync {
                             newDiningLocations.append(diningInfo)
                         }

@@ -16,6 +16,8 @@ struct DetailView: View {
     @State private var openString: String = ""
     @State private var week: [Date] = []
     @State private var weeklyHours: [[String]] = []
+    @State private var occupancyLoading: Bool = true
+    @State private var occupancyPercentage: Double = 0.0
     private let daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
     private var animation: Animation {
@@ -72,6 +74,30 @@ struct DetailView: View {
                 .year().month().day()
                 .dateSeparator(.dash))
             getSingleDiningInfo(date: date_string, locationId: location.id, completionHandler: requestDone)
+        }
+    }
+    
+    private func getOccupancy() {
+        // Only fetch occupancy data if the location is actually open right now. Otherwise, just exit early and hide the spinner.
+        if location.open == .open || location.open == .closingSoon {
+            DispatchQueue.main.async {
+                getOccupancyPercentage(locationId: location.id) { result in
+                    switch result {
+                    case .success(let occupancy):
+                        DispatchQueue.main.sync {
+                            occupancyPercentage = occupancy
+                            occupancyLoading = false
+                        }
+                    case .failure(let error):
+                        print(error)
+                        DispatchQueue.main.sync {
+                            occupancyLoading = false
+                        }
+                    }
+                }
+            }
+        } else {
+            occupancyLoading = false
         }
     }
     
@@ -148,6 +174,24 @@ struct DetailView: View {
                             }
                         }
                     }
+                    HStack(spacing: 0) {
+                        ForEach(Range(1...5), id: \.self) { index in
+                            if occupancyPercentage > (20 * Double(index)) {
+                                Image(systemName: "person.fill")
+                            } else {
+                                Image(systemName: "person")
+                            }
+                        }
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .frame(width: 18, height: 18)
+                            .opacity(occupancyLoading ? 1 : 0)
+                            .onAppear {
+                                getOccupancy()
+                            }
+                    }
+                    .foregroundStyle(Color.accent.opacity(occupancyLoading ? 0.5 : 1.0))
+                    .font(.title3)
                     .padding(.bottom, 12)
                     if let visitingChefs = location.visitingChefs, !visitingChefs.isEmpty {
                         VStack(alignment: .leading) {

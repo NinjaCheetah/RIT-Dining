@@ -71,7 +71,7 @@ enum VisitingChefStatus {
     case leavingSoon
 }
 
-// A visitng chef present at a location.
+// A visiting chef present at a location.
 struct VisitingChef: Equatable, Hashable {
     let name: String
     let description: String
@@ -80,6 +80,7 @@ struct VisitingChef: Equatable, Hashable {
     let status: VisitingChefStatus
 }
 
+// A daily special at a location.
 struct DailySpecial: Equatable, Hashable {
     let name: String
     let type: String
@@ -96,4 +97,37 @@ struct DiningLocation: Identifiable, Hashable {
     let open: OpenStatus
     let visitingChefs: [VisitingChef]?
     let dailySpecials: [DailySpecial]?
+}
+
+// Parser used to parse the data from the maps.rit.edu/api/api-dining.php used as a middleman to translate the IDs from TigerCenter
+// to the IDs used for the maps API.
+struct MapsMiddlemanParser: Decodable {
+    // Properties of the location, which are all I need.
+    struct Properties: Decodable {
+        let name: String
+        let url: String
+        let id: String
+        let mdoid: String
+    }
+    let properties: Properties
+}
+
+// Parser to read the occupancy data for a location.
+struct DiningOccupancyParser: Decodable {
+    // Represents a per-hour occupancy rating.
+    struct HourlyOccupancy: Decodable {
+        let hour: Int
+        let today: Int
+        let today_max: Int
+        let one_week_ago: Int
+        let one_week_ago_max: Int
+        let average: Int
+    }
+    let count: Int
+    let location: String
+    let building: String
+    let mdo_id: Int
+    let max_occ: Int
+    let open_status: String
+    let intra_loc_hours: [HourlyOccupancy]
 }
