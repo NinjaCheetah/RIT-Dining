@@ -26,43 +26,29 @@ struct VisitingChefs: View {
         .repeatForever(autoreverses: false)
     }
     
-    private let display: DateFormatter = {
-        let display = DateFormatter()
-        display.timeZone = TimeZone(identifier: "America/New_York")
-        display.dateStyle = .none
-        display.timeStyle = .short
-        return display
-    }()
-    
     // Asynchronously fetch the data for all of the locations on the given date (only ever today or tomorrow) to get the visiting chef
     // information.
-    private func getDiningDataForDate(date: String) {
+    private func getDiningDataForDate(date: String) async {
         var newDiningLocations: [DiningLocation] = []
         getAllDiningInfo(date: date) { result in
-            DispatchQueue.global().async {
-                switch result {
-                case .success(let locations):
-                    for i in 0..<locations.locations.count {
-                        let diningInfo = parseLocationInfo(location: locations.locations[i])
-                        print(diningInfo.name)
-                        DispatchQueue.global().sync {
-                            // Only save the locations that actually have visiting chefs to avoid extra iterations later.
-                            if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {
-                                newDiningLocations.append(diningInfo)
-                            }
-                        }
+            switch result {
+            case .success(let locations):
+                for i in 0..<locations.locations.count {
+                    let diningInfo = parseLocationInfo(location: locations.locations[i])
+                    print(diningInfo.name)
+                    // Only save the locations that actually have visiting chefs to avoid extra iterations later.
+                    if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {
+                        newDiningLocations.append(diningInfo)
                     }
-                    DispatchQueue.global().sync {
-                        locationsWithChefs = newDiningLocations
-                        isLoading = false
-                    }
-                case .failure(let error): print(error)
                 }
+                locationsWithChefs = newDiningLocations
+                isLoading = false
+            case .failure(let error): print(error)
             }
         }
     }
     
-    private func getDiningData() {
+    private func getDiningData() async {
         isLoading = true
         let dateString: String
         if !isTomorrow {
@@ -74,7 +60,7 @@ struct VisitingChefs: View {
             dateString = getAPIFriendlyDateString(date: tomorrow)
             print("fetching visiting chefs for date \(dateString) (tomorrow)")
         }
-        getDiningDataForDate(date: dateString)
+        await getDiningDataForDate(date: dateString)
     }
     
     var body: some View {
@@ -100,7 +86,9 @@ struct VisitingChefs: View {
                             }
                         }
                         isTomorrow.toggle()
-                        getDiningData()
+                        Task {
+                            await getDiningData()
+                        }
                     }) {
                         Image(systemName: "chevron.right.circle")
                             .rotationEffect(.degrees(daySwitcherRotation))
@@ -176,7 +164,7 @@ struct VisitingChefs: View {
                                         }
                                         Text("•")
                                             .foregroundStyle(.secondary)
-                                        Text("\(display.string(from: chef.openTime)) - \(display.string(from: chef.closeTime))")
+                                        Text("\(dateDisplay.string(from: chef.openTime)) - \(dateDisplay.string(from: chef.closeTime))")
                                             .foregroundStyle(.secondary)
                                     }
                                     Text(chef.description)
@@ -192,11 +180,11 @@ struct VisitingChefs: View {
         .sheet(item: $safariUrl) { url in
             SafariView(url: url.url)
         }
-        .onAppear {
-            getDiningData()
+        .task {
+            await getDiningData()
         }
         .refreshable {
-            getDiningData()
+            await getDiningData()
         }
     }
 }

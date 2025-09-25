@@ -94,7 +94,7 @@ struct DiningLocation: Identifiable, Hashable {
     let desc: String
     let mapsUrl: String
     let diningTimes: [DiningTimes]?
-    let open: OpenStatus
+    var open: OpenStatus
     let visitingChefs: [VisitingChef]?
     let dailySpecials: [DailySpecial]?
 }

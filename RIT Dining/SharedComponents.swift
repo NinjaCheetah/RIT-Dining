@@ -31,9 +31,17 @@ func getAPIFriendlyDateString(date: Date) -> String {
     return formatter.string(from: date)
 }
 
+// The common date formatter that I'm using everywhere that open periods are shown within the app.
+let dateDisplay: DateFormatter = {
+    let display = DateFormatter()
+    display.timeZone = TimeZone(identifier: "America/New_York")
+    display.dateStyle = .none
+    display.timeStyle = .short
+    return display
+}()
 
 // Custom view extension that just applies modifiers in a block to the object it's applied to. Mostly useful for splitting up conditional
-// modifiers that should only be applied for certain OS versions.
+// modifiers that should only be applied for certain OS versions. (A returning feature from RNGTool!)
 extension View {
     func apply<V: View>(@ViewBuilder _ block: (Self) -> V) -> V { block(self) }
 }

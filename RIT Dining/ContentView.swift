@@ -7,55 +7,11 @@
 
 import SwiftUI
 
-struct LocationList: View {
-    let diningLocations: [DiningLocation]
-    
-    // I forgot this before and was really confused why all of the times were in UTC.
-    private let display: DateFormatter = {
-        let display = DateFormatter()
-        display.timeZone = TimeZone(identifier: "America/New_York")
-        display.dateStyle = .none
-        display.timeStyle = .short
-        return display
-    }()
-    
-    var body: some View {
-        ForEach(diningLocations, id: \.self) { location in
-            NavigationLink(destination: DetailView(location: location)) {
-                VStack(alignment: .leading) {
-                    Text(location.name)
-                    switch location.open {
-                    case .open:
-                        Text("Open")
-                            .foregroundStyle(.green)
-                    case .closed:
-                        Text("Closed")
-                            .foregroundStyle(.red)
-                    case .openingSoon:
-                        Text("Opening Soon")
-                            .foregroundStyle(.orange)
-                    case .closingSoon:
-                        Text("Closing Soon")
-                            .foregroundStyle(.orange)
-                    }
-                    if let times = location.diningTimes, !times.isEmpty {
-                        ForEach(times, id: \.self) { time in
-                            Text("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("Not Open Today")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-    }
-}
-
 struct ContentView: View {
-    // Stored in AppStorage because making this setting persistent makes sense. Some people only ever want to see open locations.
+    // Save sort/filter options in AppStorage so that they actually get saved.
     @AppStorage("openLocationsOnly") var openLocationsOnly: Bool = false
+    @AppStorage("openLocationsFirst") var openLocationsFirst: Bool = false
+    @State private var favorites = Favorites()
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @State private var showingDonationSheet: Bool = false
@@ -71,51 +27,73 @@ struct ContentView: View {
     }
     
     // Asynchronously fetch the data for all of the locations and parse their data to display it.
-    private func getDiningData() {
+    private func getDiningData() async {
         var newDiningLocations: [DiningLocation] = []
         getAllDiningInfo(date: nil) { result in
-            DispatchQueue.global().async {
-                switch result {
-                case .success(let locations):
-                    for i in 0..<locations.locations.count {
-                        let diningInfo = parseLocationInfo(location: locations.locations[i])
-                        DispatchQueue.global().sync {
-                            newDiningLocations.append(diningInfo)
-                        }
-                    }
-                    DispatchQueue.global().sync {
-                        // Need to sort the locations alphabetically because they get returned in a completely arbitrary order. Also
-                        // need to do so while ignoring the word "the" because a bunch of locations have it and it's not helpful to put
-                        // those all down in "T".
-                        diningLocations = newDiningLocations.sorted { firstLoc, secondLoc in
-                            func removeThe(_ name: String) -> String {
-                                let lowercased = name.lowercased()
-                                if lowercased.hasPrefix("the ") {
-                                    return String(name.dropFirst(4))
-                                }
-                                return name
-                            }
-                            return removeThe(firstLoc.name).localizedCaseInsensitiveCompare(removeThe(secondLoc.name)) == .orderedAscending
-                        }
-                        lastRefreshed = Date()
-                        isLoading = false
-                    }
-                case .failure(let error):
-                    print(error)
-                    loadFailed = true
+            switch result {
+            case .success(let locations):
+                for i in 0..<locations.locations.count {
+                    let diningInfo = parseLocationInfo(location: locations.locations[i])
+                    newDiningLocations.append(diningInfo)
                 }
+                diningLocations = newDiningLocations
+                lastRefreshed = Date()
+                isLoading = false
+            case .failure(let error):
+                print(error)
+                loadFailed = true
             }
         }
     }
     
-    // Allow for searching the list and hiding closed locations. Gets a list of locations that match the search and a list that match
-    // the open only filter (.open and .closingSoon) and then returns the ones that match both lists.
+    // Start a perpetually running timer to refresh the open statuses, so that they automatically switch as appropriate without
+    // needing to refresh the data. You don't need to yell at the API again to know that the location opening at 11:00 AM should now
+    // display "Open" instead of "Opening Soon" now that it's 11:01.
+    private func updateOpenStatuses() async {
+        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+            for location in diningLocations.indices {
+                diningLocations[location].updateOpenStatus()
+            }
+        }
+    }
+    
+    // The dining locations need to be sorted before being displayed. Favorites should always be shown first, followed by non-favorites.
+    // Afterwards, filters the sorted list based on any current search text and the "open locations only" filtering option.
     private var filteredLocations: [DiningLocation] {
-        diningLocations.filter { location in
+        var newLocations = diningLocations
+        // Because "The Commons" should be C for "Commons" and not T for "The".
+        func removeThe(_ name: String) -> String {
+            let lowercased = name.lowercased()
+            if lowercased.hasPrefix("the ") {
+                return String(name.dropFirst(4))
+            }
+            return name
+        }
+        newLocations.sort { firstLoc, secondLoc in
+            let firstLocIsFavorite = favorites.contains(firstLoc)
+            let secondLocIsFavorite = favorites.contains(secondLoc)
+            // Favorites get priority!
+            if firstLocIsFavorite != secondLocIsFavorite {
+                return firstLocIsFavorite && !secondLocIsFavorite
+            }
+            // Additional sorting rule that sorts open locations ahead of closed locations, if enabled.
+            if openLocationsFirst {
+                let firstIsOpen = (firstLoc.open == .open || firstLoc.open == .closingSoon)
+                let secondIsOpen = (secondLoc.open == .open || secondLoc.open == .closingSoon)
+                if firstIsOpen != secondIsOpen {
+                    return firstIsOpen && !secondIsOpen
+                }
+            }
+            return removeThe(firstLoc.name)
+                .localizedCaseInsensitiveCompare(removeThe(secondLoc.name)) == .orderedAscending
+        }
+        // Search/open only filtering step.
+        newLocations = newLocations.filter { location in
             let searchedLocations = searchText.isEmpty || location.name.localizedCaseInsensitiveContains(searchText)
             let openLocations = !openLocationsOnly || location.open == .open || location.open == .closingSoon
             return searchedLocations && openLocations
         }
+        return newLocations
     }
     
     var body: some View {
@@ -132,7 +110,9 @@ struct ContentView: View {
                             .multilineTextAlignment(.center)
                         Button(action: {
                             loadFailed = false
-                            getDiningData()
+                            Task {
+                                await getDiningData()
+                            }
                         }) {
                             Label("Refresh", systemImage: "arrow.clockwise")
                         }
@@ -156,23 +136,67 @@ struct ContentView: View {
             } else {
                 VStack() {
                     List {
-                        // Always show the visiting chef link on iOS 26+, since the bottom mounted search bar makes this work okay. On
-                        // older iOS versions, hide the button while searching to make it easier to go through search results.
-                        if #unavailable(iOS 26.0), searchText.isEmpty {
-                            Section(content: {
-                                NavigationLink(destination: VisitingChefs()) {
-                                    Text("Today's Visiting Chefs")
-                                }
-                            })
-                        } else {
-                            Section(content: {
-                                NavigationLink(destination: VisitingChefs()) {
-                                    Text("Today's Visiting Chefs")
-                                }
-                            })
-                        }
                         Section(content: {
-                            LocationList(diningLocations: filteredLocations)
+                            NavigationLink(destination: VisitingChefs()) {
+                                Text("Today's Visiting Chefs")
+                            }
+                        })
+                        Section(content: {
+                            ForEach(filteredLocations, id: \.self) { location in
+                                NavigationLink(destination: DetailView(location: location)) {
+                                    VStack(alignment: .leading) {
+                                        HStack {
+                                            Text(location.name)
+                                            if favorites.contains(location) {
+                                                Image(systemName: "star.fill")
+                                                    .foregroundStyle(.yellow)
+                                            }
+                                        }
+                                        switch location.open {
+                                        case .open:
+                                            Text("Open")
+                                                .foregroundStyle(.green)
+                                        case .closed:
+                                            Text("Closed")
+                                                .foregroundStyle(.red)
+                                        case .openingSoon:
+                                            Text("Opening Soon")
+                                                .foregroundStyle(.orange)
+                                        case .closingSoon:
+                                            Text("Closing Soon")
+                                                .foregroundStyle(.orange)
+                                        }
+                                        if let times = location.diningTimes, !times.isEmpty {
+                                            ForEach(times, id: \.self) { time in
+                                                Text("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        } else {
+                                            Text("Not Open Today")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                .swipeActions {
+                                    Button(action: {
+                                        withAnimation {
+                                            if favorites.contains(location) {
+                                                favorites.remove(location)
+                                            } else {
+                                                favorites.add(location)
+                                            }
+                                        }
+                                        
+                                    }) {
+                                        if favorites.contains(location) {
+                                            Label("Unfavorite", systemImage: "star")
+                                        } else {
+                                            Label("Favorite", systemImage: "star")
+                                        }
+                                    }
+                                    .tint(favorites.contains(location) ? .yellow : nil)
+                                }
+                            }
                         }, footer: {
                             if let lastRefreshed {
                                 VStack(alignment: .center) {
@@ -185,21 +209,21 @@ struct ContentView: View {
                     }
                 }
                 .navigationTitle("RIT Dining")
-                .searchable(text: $searchText, prompt: "Search...")
+                .searchable(text: $searchText, prompt: "Search")
                 .refreshable {
-                    getDiningData()
+                    await getDiningData()
                 }
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button(action: {
-                                getDiningData()
+                                Task {
+                                    await getDiningData()
+                                }
                             }) {
                                 Label("Refresh", systemImage: "arrow.clockwise")
                             }
-                            Toggle(isOn: $openLocationsOnly) {
-                                Label("Hide Closed Locations", systemImage: "eye.slash")
-                            }
+                            Divider()
                             NavigationLink(destination: AboutView()) {
                                 Image(systemName: "info.circle")
                                     .foregroundColor(.accentColor)
@@ -212,14 +236,34 @@ struct ContentView: View {
                             }
                         } label: {
                             Image(systemName: "slider.horizontal.3")
-                                .foregroundStyle(.accent)
                         }
+                    }
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Menu {
+                            Toggle(isOn: $openLocationsOnly) {
+                                Label("Hide Closed Locations", systemImage: "eye.slash")
+                            }
+                            Toggle(isOn: $openLocationsFirst) {
+                                Label("Open Locations First", systemImage: "arrow.up.arrow.down")
+                            }
+                        } label: {
+                            Image(systemName: "line.3.horizontal.decrease")
+                        }
+                        if #unavailable(iOS 26.0) {
+                            Spacer()
+                        }
+                    }
+                    if #available(iOS 26.0, *) {
+                        ToolbarSpacer(.flexible, placement: .bottomBar)
+                        DefaultToolbarItem(kind: .search, placement: .bottomBar)
                     }
                 }
             }
         }
-        .onAppear {
-            getDiningData()
+        .environment(favorites)
+        .task {
+            await getDiningData()
+            await updateOpenStatuses()
         }
         .sheet(isPresented: $showingDonationSheet) {
             DonationView()

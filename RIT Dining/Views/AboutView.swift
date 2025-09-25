@@ -23,6 +23,8 @@ struct AboutView: View {
             Text("because the RIT dining website is slow!")
             Text("Version \(appVersionString) (\(buildNumber))")
                 .foregroundStyle(.secondary)
+            Text("The RIT Dining app is powered by the TigerCenter API. Dining location occupancy information is sourced from the RIT maps API.")
+                .multilineTextAlignment(.center)
             Spacer()
             Button(action: {
                 openURL(URL(string: "https://github.com/NinjaCheetah/RIT-Dining")!)
@@ -32,7 +34,12 @@ struct AboutView: View {
             Button(action: {
                 openURL(URL(string: "https://tigercenter.rit.edu/")!)
             }) {
-                Label("TigerCenter API", systemImage: "globe")
+                Label("TigerCenter", systemImage: "globe")
+            }
+            Button(action: {
+                openURL(URL(string: "https://maps.rit.edu/")!)
+            }) {
+                Label("RIT Maps", systemImage: "globe")
             }
         }
         .padding()

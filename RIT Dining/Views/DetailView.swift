@@ -10,6 +10,7 @@ import SafariServices
 
 struct DetailView: View {
     @State var location: DiningLocation
+    @Environment(Favorites.self) var favorites
     @State private var isLoading: Bool = true
     @State private var rotationDegrees: Double = 0
     @State private var showingSafari: Bool = false
@@ -26,14 +27,6 @@ struct DetailView: View {
         .repeatForever(autoreverses: false)
     }
     
-    private let display: DateFormatter = {
-        let display = DateFormatter()
-        display.timeZone = TimeZone(identifier: "America/New_York")
-        display.dateStyle = .none
-        display.timeStyle = .short
-        return display
-    }()
-    
     private func requestDone(result: Result<DiningLocationParser, Error>) -> Void {
         switch result {
         case .success(let location):
@@ -41,7 +34,7 @@ struct DetailView: View {
             if let times = diningInfo.diningTimes, !times.isEmpty {
                 var timeStrings: [String] = []
                 for time in times {
-                    timeStrings.append("\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime))")
+                    timeStrings.append("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
                 }
                 weeklyHours.append(timeStrings)
             } else {
@@ -130,6 +123,23 @@ struct DetailView: View {
                             .fontWeight(.bold)
                         Spacer()
                         Button(action: {
+                            if favorites.contains(location) {
+                                favorites.remove(location)
+                            } else {
+                                favorites.add(location)
+                            }
+                        }) {
+                            if favorites.contains(location) {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(.yellow)
+                                    .font(.title3)
+                            } else {
+                                Image(systemName: "star")
+                                    .foregroundStyle(.yellow)
+                                    .font(.title3)
+                            }
+                        }
+                        Button(action: {
                             showingSafari = true
                         }) {
                             Image(systemName: "map")
@@ -164,7 +174,7 @@ struct DetailView: View {
                                     .onAppear {
                                         openString = ""
                                         for time in times {
-                                            openString += "\(display.string(from: time.openTime)) - \(display.string(from: time.closeTime)), "
+                                            openString += "\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime)), "
                                         }
                                         openString = String(openString.prefix(openString.count - 2))
                                     }
@@ -220,7 +230,7 @@ struct DetailView: View {
                                             Text("Leaving Soon")
                                                 .foregroundStyle(.orange)
                                         }
-                                        Text("\(display.string(from: chef.openTime)) - \(display.string(from: chef.closeTime))")
+                                        Text("\(dateDisplay.string(from: chef.openTime)) - \(dateDisplay.string(from: chef.closeTime))")
                                             .foregroundStyle(.secondary)
                                     }
                                 }

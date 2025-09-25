@@ -244,3 +244,22 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
         visitingChefs: visitingChefs,
         dailySpecials: dailySpecials)
 }
+
+extension DiningLocation {
+    mutating func updateOpenStatus() {
+        var openStatus: OpenStatus = .closed
+        if let diningTimes = diningTimes, !diningTimes.isEmpty {
+            for i in diningTimes.indices {
+                openStatus = parseOpenStatus(openTime: diningTimes[i].openTime, closeTime: diningTimes[i].closeTime)
+                // If the first event pass came back closed, loop again in case a later event has a different status. This is mostly to
+                // accurately catch Gracie's multiple open periods each day.
+                if openStatus != .closed {
+                    break
+                }
+            }
+            self.open = openStatus
+        } else {
+            self.open = .closed
+        }
+    }
+}
