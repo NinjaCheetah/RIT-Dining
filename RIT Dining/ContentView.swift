@@ -33,7 +33,7 @@ struct ContentView: View {
             switch result {
             case .success(let locations):
                 for i in 0..<locations.locations.count {
-                    let diningInfo = parseLocationInfo(location: locations.locations[i])
+                    let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
                     newDiningLocations.append(diningInfo)
                 }
                 diningLocations = newDiningLocations

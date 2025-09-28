@@ -19,6 +19,7 @@ struct DetailView: View {
     @State private var weeklyHours: [[String]] = []
     @State private var occupancyLoading: Bool = true
     @State private var occupancyPercentage: Double = 0.0
+    @State private var focusedDate: Date = Date()
     private let daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
     private var animation: Animation {
@@ -30,7 +31,7 @@ struct DetailView: View {
     private func requestDone(result: Result<DiningLocationParser, Error>) -> Void {
         switch result {
         case .success(let location):
-            let diningInfo = parseLocationInfo(location: location)
+            let diningInfo = parseLocationInfo(location: location, forDate: focusedDate)
             if let times = diningInfo.diningTimes, !times.isEmpty {
                 var timeStrings: [String] = []
                 for time in times {
@@ -44,11 +45,14 @@ struct DetailView: View {
             print(error)
         }
         if week.count > 0 {
+            // Saving this to a state variable SUCKS, but I needed a quick fix and all of this request code is still pending a
+            // rewrite anyway to be properly async like the code in ContentView and VisitingChefs.
+            focusedDate = week.removeFirst()
             DispatchQueue.global().async {
-                let date_string = week.removeFirst().formatted(.iso8601
+                let dateString = focusedDate.formatted(.iso8601
                     .year().month().day()
                     .dateSeparator(.dash))
-                getSingleDiningInfo(date: date_string, locationId: location.id, completionHandler: requestDone)
+                getSingleDiningInfo(date: dateString, locationId: location.id, completionHandler: requestDone)
             }
         } else {
             isLoading = false
@@ -74,7 +78,7 @@ struct DetailView: View {
         // Only fetch occupancy data if the location is actually open right now. Otherwise, just exit early and hide the spinner.
         if location.open == .open || location.open == .closingSoon {
             DispatchQueue.main.async {
-                getOccupancyPercentage(locationId: location.id) { result in
+                getOccupancyPercentage(mdoId: location.mdoId) { result in
                     switch result {
                     case .success(let occupancy):
                         DispatchQueue.main.sync {
@@ -297,6 +301,7 @@ struct DetailView: View {
 #Preview {
     DetailView(location: DiningLocation(
         id: 0,
+        mdoId: 0,
         name: "Example",
         summary: "A Place",
         desc: "A long description of the place",

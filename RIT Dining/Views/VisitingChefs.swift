@@ -34,7 +34,7 @@ struct VisitingChefs: View {
             switch result {
             case .success(let locations):
                 for i in 0..<locations.locations.count {
-                    let diningInfo = parseLocationInfo(location: locations.locations[i])
+                    let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
                     print(diningInfo.name)
                     // Only save the locations that actually have visiting chefs to avoid extra iterations later.
                     if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {

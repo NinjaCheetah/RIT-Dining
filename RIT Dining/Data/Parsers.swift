@@ -31,7 +31,7 @@ func parseOpenStatus(openTime: Date, closeTime: Date) -> OpenStatus {
     return openStatus
 }
 
-func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
+func parseLocationInfo(location: DiningLocationParser, forDate: Date?) -> DiningLocation {
     print("beginning parse for \(location.name)")
     
     // The descriptions sometimes have HTML <br /> tags despite also having \n. Those need to be removed.
@@ -41,6 +41,7 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     if location.events.isEmpty {
         return DiningLocation(
             id: location.id,
+            mdoId: location.mdoId,
             name: location.name,
             summary: location.summary,
             desc: desc,
@@ -68,8 +69,15 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
             }
         } else {
             if !openStrings.contains(event.startTime), !closeStrings.contains(event.endTime) {
-                openStrings.append(event.startTime)
-                closeStrings.append(event.endTime)
+                // Verify that the current weekday falls within the schedule. The regular event schedule specifies which days of the week
+                // it applies to, and if the current day isn't in that list and there are no exceptions, that means there are no hours
+                // for this location.
+                let weekdayFormatter = DateFormatter()
+                weekdayFormatter.dateFormat = "EEEE"
+                if event.daysOfWeek.contains(weekdayFormatter.string(from: forDate ?? Date()).uppercased()) {
+                    openStrings.append(event.startTime)
+                    closeStrings.append(event.endTime)
+                }
             }
         }
     }
@@ -79,6 +87,7 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     if openStrings.isEmpty || closeStrings.isEmpty {
         return DiningLocation(
             id: location.id,
+            mdoId: location.mdoId,
             name: location.name,
             summary: location.summary,
             desc: desc,
@@ -235,6 +244,7 @@ func parseLocationInfo(location: DiningLocationParser) -> DiningLocation {
     
     return DiningLocation(
         id: location.id,
+        mdoId: location.mdoId,
         name: location.name,
         summary: location.summary,
         desc: desc,

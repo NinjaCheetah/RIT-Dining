@@ -24,6 +24,7 @@ struct DiningLocationParser: Decodable {
         }
         let startTime: String
         let endTime: String
+        let daysOfWeek: [String]
         let exceptions: [HoursException]?
     }
     // An individual "menu", which can be either a daily special item or a visitng chef. Description needs to be optional because
@@ -35,6 +36,7 @@ struct DiningLocationParser: Decodable {
     }
     // Other basic information to read from a location's JSON that we'll need later.
     let id: Int
+    let mdoId: Int
     let name: String
     let summary: String
     let description: String
@@ -89,6 +91,7 @@ struct DailySpecial: Equatable, Hashable {
 // The basic information about a dining location needed to display it in the app after parsing is finished.
 struct DiningLocation: Identifiable, Hashable {
     let id: Int
+    let mdoId: Int
     let name: String
     let summary: String
     let desc: String
