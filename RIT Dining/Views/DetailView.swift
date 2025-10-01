@@ -9,17 +9,15 @@ import SwiftUI
 import SafariServices
 
 struct DetailView: View {
-    @State var location: DiningLocation
+    @Binding var location: DiningLocation
     @Environment(Favorites.self) var favorites
     @State private var isLoading: Bool = true
     @State private var rotationDegrees: Double = 0
     @State private var showingSafari: Bool = false
     @State private var openString: String = ""
-    @State private var week: [Date] = []
     @State private var weeklyHours: [[String]] = []
     @State private var occupancyLoading: Bool = true
     @State private var occupancyPercentage: Double = 0.0
-    @State private var focusedDate: Date = Date()
     private let daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
     private var animation: Animation {
@@ -28,73 +26,60 @@ struct DetailView: View {
         .repeatForever(autoreverses: false)
     }
     
-    private func requestDone(result: Result<DiningLocationParser, Error>) -> Void {
-        switch result {
-        case .success(let location):
-            let diningInfo = parseLocationInfo(location: location, forDate: focusedDate)
-            if let times = diningInfo.diningTimes, !times.isEmpty {
-                var timeStrings: [String] = []
-                for time in times {
-                    timeStrings.append("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
-                }
-                weeklyHours.append(timeStrings)
-            } else {
-                weeklyHours.append(["Closed"])
-            }
-        case .failure(let error):
-            print(error)
-        }
-        if week.count > 0 {
-            // Saving this to a state variable SUCKS, but I needed a quick fix and all of this request code is still pending a
-            // rewrite anyway to be properly async like the code in ContentView and VisitingChefs.
-            focusedDate = week.removeFirst()
-            DispatchQueue.global().async {
-                let dateString = focusedDate.formatted(.iso8601
-                    .year().month().day()
-                    .dateSeparator(.dash))
-                getSingleDiningInfo(date: dateString, locationId: location.id, completionHandler: requestDone)
-            }
-        } else {
-            isLoading = false
-            print(weeklyHours)
-        }
-    }
-    
-    private func getWeeklyHours() {
+    // This function is now actaully async and iterative! Wow! It doesn't suck ass anymore!
+    private func getWeeklyHours() async {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let dayOfWeek = calendar.component(.weekday, from: today)
-        week = calendar.range(of: .weekday, in: .weekOfYear, for: today)!
+        let week = calendar.range(of: .weekday, in: .weekOfYear, for: today)!
             .compactMap { calendar.date(byAdding: .day, value: $0 - dayOfWeek, to: today) }
-        DispatchQueue.global().async {
-            let date_string = week.removeFirst().formatted(.iso8601
+        var newWeeklyHours: [[String]] = []
+        for day in week {
+            let date_string = day.formatted(.iso8601
                 .year().month().day()
                 .dateSeparator(.dash))
-            getSingleDiningInfo(date: date_string, locationId: location.id, completionHandler: requestDone)
+            switch await getSingleDiningInfo(date: date_string, locId: location.id) {
+            case .success(let location):
+                let diningInfo = parseLocationInfo(location: location, forDate: day)
+                if let times = diningInfo.diningTimes, !times.isEmpty {
+                    var timeStrings: [String] = []
+                    for time in times {
+                        timeStrings.append("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
+                    }
+                    newWeeklyHours.append(timeStrings)
+                } else {
+                    newWeeklyHours.append(["Closed"])
+                }
+            case .failure(let error):
+                print(error)
+            }
         }
+        weeklyHours = newWeeklyHours
+        isLoading = false
+        print(weeklyHours)
     }
     
-    private func getOccupancy() {
+    private func getOccupancy() async {
         // Only fetch occupancy data if the location is actually open right now. Otherwise, just exit early and hide the spinner.
         if location.open == .open || location.open == .closingSoon {
-            DispatchQueue.main.async {
-                getOccupancyPercentage(mdoId: location.mdoId) { result in
-                    switch result {
-                    case .success(let occupancy):
-                        DispatchQueue.main.sync {
-                            occupancyPercentage = occupancy
-                            occupancyLoading = false
-                        }
-                    case .failure(let error):
-                        print(error)
-                        DispatchQueue.main.sync {
-                            occupancyLoading = false
-                        }
-                    }
-                }
+            occupancyLoading = true
+            switch await getOccupancyPercentage(mdoId: location.mdoId) {
+            case .success(let occupancy):
+                occupancyPercentage = occupancy
+                occupancyLoading = false
+            case .failure(let error):
+                print(error)
+                occupancyLoading = false
             }
         } else {
             occupancyLoading = false
+        }
+    }
+    
+    // Same label update timer from ContentView.
+    private func updateOpenStatuses() async {
+        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+            location.updateOpenStatus()
         }
     }
     
@@ -114,8 +99,8 @@ struct DetailView: View {
                 Text("Loading...")
                     .foregroundStyle(.secondary)
             }
-            .onAppear {
-                getWeeklyHours()
+            .task {
+                await getWeeklyHours()
             }
             .padding()
         } else {
@@ -200,8 +185,8 @@ struct DetailView: View {
                             .progressViewStyle(.circular)
                             .frame(width: 18, height: 18)
                             .opacity(occupancyLoading ? 1 : 0)
-                            .onAppear {
-                                getOccupancy()
+                            .task {
+                                await getOccupancy()
                             }
                     }
                     .foregroundStyle(Color.accent.opacity(occupancyLoading ? 0.5 : 1.0))
@@ -294,20 +279,24 @@ struct DetailView: View {
             .sheet(isPresented: $showingSafari) {
                 SafariView(url: URL(string: location.mapsUrl)!)
             }
+            .refreshable {
+                await getWeeklyHours()
+                await getOccupancy()
+            }
         }
     }
 }
 
-#Preview {
-    DetailView(location: DiningLocation(
-        id: 0,
-        mdoId: 0,
-        name: "Example",
-        summary: "A Place",
-        desc: "A long description of the place",
-        mapsUrl: "https://example.com",
-        diningTimes: [DiningTimes(openTime: Date(), closeTime: Date())],
-        open: .open,
-        visitingChefs: nil,
-        dailySpecials: nil))
-}
+//#Preview {
+//    DetailView(location: DiningLocation(
+//        id: 0,
+//        mdoId: 0,
+//        name: "Example",
+//        summary: "A Place",
+//        desc: "A long description of the place",
+//        mapsUrl: "https://example.com",
+//        diningTimes: [DiningTimes(openTime: Date(), closeTime: Date())],
+//        open: .open,
+//        visitingChefs: nil,
+//        dailySpecials: nil))
+//}

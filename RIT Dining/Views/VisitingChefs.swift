@@ -30,21 +30,20 @@ struct VisitingChefs: View {
     // information.
     private func getDiningDataForDate(date: String) async {
         var newDiningLocations: [DiningLocation] = []
-        getAllDiningInfo(date: date) { result in
-            switch result {
-            case .success(let locations):
-                for i in 0..<locations.locations.count {
-                    let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
-                    print(diningInfo.name)
-                    // Only save the locations that actually have visiting chefs to avoid extra iterations later.
-                    if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {
-                        newDiningLocations.append(diningInfo)
-                    }
+        switch await getAllDiningInfo(date: date) {
+        case .success(let locations):
+            for i in 0..<locations.locations.count {
+                let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
+                print(diningInfo.name)
+                // Only save the locations that actually have visiting chefs to avoid extra iterations later.
+                if let visitingChefs = diningInfo.visitingChefs, !visitingChefs.isEmpty {
+                    newDiningLocations.append(diningInfo)
                 }
-                locationsWithChefs = newDiningLocations
-                isLoading = false
-            case .failure(let error): print(error)
             }
+            locationsWithChefs = newDiningLocations
+            isLoading = false
+        case .failure(let error):
+            print(error)
         }
     }
     

@@ -11,117 +11,88 @@ enum InvalidHTTPError: Error {
     case invalid
 }
 
-// This API requesting code came from another project of mine and was used to fetch the GitHub API for update checking. I just copied it
-// here, but it can probably be made simpler for this use case.
-
+// This code has now been mostly rewritten to be pretty and async instead of being horrifying callback based code in a context where
+// callback based code made no sense. I love async!
 // Get information for all dining locations.
-func getAllDiningInfo(date: String?, completionHandler: @escaping (Result<DiningLocationsParser, Error>) -> Void) {
+func getAllDiningInfo(date: String?) async -> Result<DiningLocationsParser, Error> {
     // The endpoint requires that you specify a date, so get today's.
-    let date_string: String = date ?? getAPIFriendlyDateString(date: Date())
-    let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-all?date=\(date_string)"
+    let dateString: String = date ?? getAPIFriendlyDateString(date: Date())
+    let urlString = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-all?date=\(dateString)"
     
-    guard let url = URL(string: url_string) else {
-        print("Invalid URL")
-        return
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
     }
-    let request = URLRequest(url: url)
-    
-    URLSession.shared.dataTask(with: request) { data, response, error in
-        if let error = error {
-            completionHandler(.failure(error))
-            return
+
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
         }
         
-        guard let data = data else {
-            completionHandler(.failure(URLError(.badServerResponse)))
-            return
-        }
-        
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            completionHandler(.failure(InvalidHTTPError.invalid))
-            return
-        }
-        
-        let decoded: Result<DiningLocationsParser, Error> = Result(catching: { try JSONDecoder().decode(DiningLocationsParser.self, from: data) })
-        completionHandler(decoded)
-    }.resume()
+        let decoded = try JSONDecoder().decode(DiningLocationsParser.self, from: data)
+        return .success(decoded)
+    } catch {
+        return .failure(error)
+    }
 }
 
 // Get information for just one dining location based on its location ID.
-func getSingleDiningInfo(date: String?, locationId: Int, completionHandler: @escaping (Result<DiningLocationParser, Error>) -> Void) {
+func getSingleDiningInfo(date: String?, locId: Int) async -> Result<DiningLocationParser, Error> {
     // The current date and the location ID are required to get information for just one location.
-    let date_string: String = date ?? getAPIFriendlyDateString(date: Date())
-    let url_string = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-single?date=\(date_string)&locId=\(locationId)"
-    print("making request to \(url_string)")
-    
-    guard let url = URL(string: url_string) else {
-        print("Invalid URL")
-        return
+    let dateString: String = date ?? getAPIFriendlyDateString(date: Date())
+    let urlString = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-single?date=\(dateString)&locId=\(locId)"
+    print("making request to \(urlString)")
+
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
     }
-    let request = URLRequest(url: url)
-    
-    URLSession.shared.dataTask(with: request) { data, response, error in
-        if let error = error {
-            completionHandler(.failure(error))
-            return
+
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
         }
         
-        guard let data = data else {
-            completionHandler(.failure(URLError(.badServerResponse)))
-            return
-        }
-        
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            completionHandler(.failure(InvalidHTTPError.invalid))
-            return
-        }
-        
-        let decoded: Result<DiningLocationParser, Error> = Result(catching: { try JSONDecoder().decode(DiningLocationParser.self, from: data) })
-        completionHandler(decoded)
-    }.resume()
+        let decoded = try JSONDecoder().decode(DiningLocationParser.self, from: data)
+        return .success(decoded)
+    } catch {
+        return .failure(error)
+    }
 }
 
-// Get the occupancy information for a location using its MDO ID, whatever that stands for. This ID is provided alongside the other main
-// ID in the data returned by the TigerCenter API.
-func getOccupancyPercentage(mdoId: Int, completionHandler: @escaping (Result<Double, Error>) -> Void) {
+// Get the occupancy information for a location using its MDO ID, whatever that stands for. This ID is provided alongside the other
+// main ID in the data returned by the TigerCenter API.
+func getOccupancyPercentage(mdoId: Int) async -> Result<Double, Error> {
     let urlString = "https://maps.rit.edu/proxySearch/densityMapDetail.php?mdo=\(mdoId)"
     print("making request to \(urlString)")
     
     guard let url = URL(string: urlString) else {
-        print("Invalid URL")
-        return
+        return .failure(URLError(.badURL))
     }
-    let occRequest = URLRequest(url: url)
     
-    URLSession.shared.dataTask(with: occRequest) { data, response, error in
-        if let error = error {
-            completionHandler(.failure(error))
-            return
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
         }
         
-        guard let data = data else {
-            completionHandler(.failure(URLError(.badServerResponse)))
-            return
+        let occupancy = try JSONDecoder().decode([DiningOccupancyParser].self, from: data)
+        if !occupancy.isEmpty {
+            print("current occupancy: \(occupancy[0].count)")
+            print("maximum occupancy: \(occupancy[0].max_occ)")
+            let occupancyPercentage = Double(occupancy[0].count) / Double(occupancy[0].max_occ) * 100
+            print("occupancy percentage: \(occupancyPercentage)%")
+            return .success(occupancyPercentage)
+        } else {
+            return .failure(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "Failed to decode JSON")))
         }
-        
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            completionHandler(.failure(InvalidHTTPError.invalid))
-            return
-        }
-        
-        do {
-            let occupancy = try JSONDecoder().decode([DiningOccupancyParser].self, from: data)
-            if !occupancy.isEmpty {
-                print("current occupancy: \(occupancy[0].count)")
-                print("maximum occupancy: \(occupancy[0].max_occ)")
-                let occupancyPercentage = Double(occupancy[0].count) / Double(occupancy[0].max_occ) * 100
-                print("occupancy percentage: \(occupancyPercentage)%")
-                completionHandler(.success(occupancyPercentage))
-            } else {
-                completionHandler(.failure(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "Failed to decode JSON"))))
-            }
-        } catch {
-            completionHandler(.failure(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "Failed to decode JSON"))))
-        }
-    }.resume()
+    } catch {
+        return .failure(error)
+    }
 }

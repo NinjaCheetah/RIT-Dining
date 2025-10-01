@@ -7,6 +7,71 @@
 
 import SwiftUI
 
+// This view handles the actual location list, because having it inside ContentView was too complex (both visually and for the
+// type checker too, apparently).
+struct LocationList: View {
+    @State var filteredLocations: [DiningLocation]
+    @Environment(Favorites.self) var favorites
+    
+    var body: some View {
+        ForEach($filteredLocations) { $location in
+            NavigationLink(destination: DetailView(location: $location)) {
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text(location.name)
+                        if favorites.contains(location) {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(.yellow)
+                        }
+                    }
+                    switch location.open {
+                    case .open:
+                        Text("Open")
+                            .foregroundStyle(.green)
+                    case .closed:
+                        Text("Closed")
+                            .foregroundStyle(.red)
+                    case .openingSoon:
+                        Text("Opening Soon")
+                            .foregroundStyle(.orange)
+                    case .closingSoon:
+                        Text("Closing Soon")
+                            .foregroundStyle(.orange)
+                    }
+                    if let times = location.diningTimes, !times.isEmpty {
+                        ForEach(times, id: \.self) { time in
+                            Text("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Not Open Today")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .swipeActions {
+                Button(action: {
+                    withAnimation {
+                        if favorites.contains(location) {
+                            favorites.remove(location)
+                        } else {
+                            favorites.add(location)
+                        }
+                    }
+                    
+                }) {
+                    if favorites.contains(location) {
+                        Label("Unfavorite", systemImage: "star")
+                    } else {
+                        Label("Favorite", systemImage: "star")
+                    }
+                }
+                .tint(favorites.contains(location) ? .yellow : nil)
+            }
+        }
+    }
+}
+
 struct ContentView: View {
     // Save sort/filter options in AppStorage so that they actually get saved.
     @AppStorage("openLocationsOnly") var openLocationsOnly: Bool = false
@@ -29,20 +94,18 @@ struct ContentView: View {
     // Asynchronously fetch the data for all of the locations and parse their data to display it.
     private func getDiningData() async {
         var newDiningLocations: [DiningLocation] = []
-        getAllDiningInfo(date: nil) { result in
-            switch result {
-            case .success(let locations):
-                for i in 0..<locations.locations.count {
-                    let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
-                    newDiningLocations.append(diningInfo)
-                }
-                diningLocations = newDiningLocations
-                lastRefreshed = Date()
-                isLoading = false
-            case .failure(let error):
-                print(error)
-                loadFailed = true
+        switch await getAllDiningInfo(date: nil) {
+        case .success(let locations):
+            for i in 0..<locations.locations.count {
+                let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
+                newDiningLocations.append(diningInfo)
             }
+            diningLocations = newDiningLocations
+            lastRefreshed = Date()
+            isLoading = false
+        case .failure(let error):
+            print(error)
+            loadFailed = true
         }
     }
     
@@ -53,6 +116,13 @@ struct ContentView: View {
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
             for location in diningLocations.indices {
                 diningLocations[location].updateOpenStatus()
+            }
+            // If the last refreshed date isn't today, that means we probably passed midnight and need to refresh the data.
+            // So do that.
+            if !Calendar.current.isDateInToday(lastRefreshed ?? Date()) {
+                Task {
+                    await getDiningData()
+                }
             }
         }
     }
@@ -142,61 +212,7 @@ struct ContentView: View {
                             }
                         })
                         Section(content: {
-                            ForEach(filteredLocations, id: \.self) { location in
-                                NavigationLink(destination: DetailView(location: location)) {
-                                    VStack(alignment: .leading) {
-                                        HStack {
-                                            Text(location.name)
-                                            if favorites.contains(location) {
-                                                Image(systemName: "star.fill")
-                                                    .foregroundStyle(.yellow)
-                                            }
-                                        }
-                                        switch location.open {
-                                        case .open:
-                                            Text("Open")
-                                                .foregroundStyle(.green)
-                                        case .closed:
-                                            Text("Closed")
-                                                .foregroundStyle(.red)
-                                        case .openingSoon:
-                                            Text("Opening Soon")
-                                                .foregroundStyle(.orange)
-                                        case .closingSoon:
-                                            Text("Closing Soon")
-                                                .foregroundStyle(.orange)
-                                        }
-                                        if let times = location.diningTimes, !times.isEmpty {
-                                            ForEach(times, id: \.self) { time in
-                                                Text("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        } else {
-                                            Text("Not Open Today")
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                                .swipeActions {
-                                    Button(action: {
-                                        withAnimation {
-                                            if favorites.contains(location) {
-                                                favorites.remove(location)
-                                            } else {
-                                                favorites.add(location)
-                                            }
-                                        }
-                                        
-                                    }) {
-                                        if favorites.contains(location) {
-                                            Label("Unfavorite", systemImage: "star")
-                                        } else {
-                                            Label("Favorite", systemImage: "star")
-                                        }
-                                    }
-                                    .tint(favorites.contains(location) ? .yellow : nil)
-                                }
-                            }
+                            LocationList(filteredLocations: filteredLocations)
                         }, footer: {
                             if let lastRefreshed {
                                 VStack(alignment: .center) {
