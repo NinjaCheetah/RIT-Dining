@@ -1,5 +1,5 @@
 //
-//  FetchData.swift
+//  Requests.swift
 //  RIT Dining
 //
 //  Created by Campbell on 8/31/25.

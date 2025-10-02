@@ -46,6 +46,7 @@ func parseLocationInfo(location: DiningLocationParser, forDate: Date?) -> Dining
             summary: location.summary,
             desc: desc,
             mapsUrl: location.mapsUrl,
+            date: forDate ?? Date(),
             diningTimes: nil,
             open: .closed,
             visitingChefs: nil,
@@ -69,12 +70,10 @@ func parseLocationInfo(location: DiningLocationParser, forDate: Date?) -> Dining
             }
         } else {
             if !openStrings.contains(event.startTime), !closeStrings.contains(event.endTime) {
-                // Verify that the current weekday falls within the schedule. The regular event schedule specifies which days of the week
-                // it applies to, and if the current day isn't in that list and there are no exceptions, that means there are no hours
-                // for this location.
-                let weekdayFormatter = DateFormatter()
-                weekdayFormatter.dateFormat = "EEEE"
-                if event.daysOfWeek.contains(weekdayFormatter.string(from: forDate ?? Date()).uppercased()) {
+                // Verify that the current weekday falls within the schedule. The regular event schedule specifies which days of the
+                // week it applies to, and if the current day isn't in that list and there are no exceptions, that means there are no
+                // hours for this location.
+                if event.daysOfWeek.contains(weekdayFromDate.string(from: forDate ?? Date()).uppercased()) {
                     openStrings.append(event.startTime)
                     closeStrings.append(event.endTime)
                 }
@@ -92,6 +91,7 @@ func parseLocationInfo(location: DiningLocationParser, forDate: Date?) -> Dining
             summary: location.summary,
             desc: desc,
             mapsUrl: location.mapsUrl,
+            date: forDate ?? Date(),
             diningTimes: nil,
             open: .closed,
             visitingChefs: nil,
@@ -249,6 +249,7 @@ func parseLocationInfo(location: DiningLocationParser, forDate: Date?) -> Dining
         summary: location.summary,
         desc: desc,
         mapsUrl: location.mapsUrl,
+        date: forDate ?? Date(),
         diningTimes: diningTimes,
         open: openStatus,
         visitingChefs: visitingChefs,

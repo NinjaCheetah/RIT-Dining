@@ -96,23 +96,11 @@ struct DiningLocation: Identifiable, Hashable {
     let summary: String
     let desc: String
     let mapsUrl: String
+    let date: Date
     let diningTimes: [DiningTimes]?
     var open: OpenStatus
     let visitingChefs: [VisitingChef]?
     let dailySpecials: [DailySpecial]?
-}
-
-// Parser used to parse the data from the maps.rit.edu/api/api-dining.php used as a middleman to translate the IDs from TigerCenter
-// to the IDs used for the maps API.
-struct MapsMiddlemanParser: Decodable {
-    // Properties of the location, which are all I need.
-    struct Properties: Decodable {
-        let name: String
-        let url: String
-        let id: String
-        let mdoid: String
-    }
-    let properties: Properties
 }
 
 // Parser to read the occupancy data for a location.
@@ -133,4 +121,11 @@ struct DiningOccupancyParser: Decodable {
     let max_occ: Int
     let open_status: String
     let intra_loc_hours: [HourlyOccupancy]
+}
+
+// Struct used to represent a day and its hours as strings. Type used for the hours of today and the next 6 days used in DetailView.
+struct WeeklyHours: Hashable {
+    let day: String
+    let date: Date
+    let timeStrings: [String]
 }

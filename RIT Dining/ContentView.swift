@@ -7,82 +7,18 @@
 
 import SwiftUI
 
-// This view handles the actual location list, because having it inside ContentView was too complex (both visually and for the
-// type checker too, apparently).
-struct LocationList: View {
-    @State var filteredLocations: [DiningLocation]
-    @Environment(Favorites.self) var favorites
-    
-    var body: some View {
-        ForEach($filteredLocations) { $location in
-            NavigationLink(destination: DetailView(location: $location)) {
-                VStack(alignment: .leading) {
-                    HStack {
-                        Text(location.name)
-                        if favorites.contains(location) {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
-                        }
-                    }
-                    switch location.open {
-                    case .open:
-                        Text("Open")
-                            .foregroundStyle(.green)
-                    case .closed:
-                        Text("Closed")
-                            .foregroundStyle(.red)
-                    case .openingSoon:
-                        Text("Opening Soon")
-                            .foregroundStyle(.orange)
-                    case .closingSoon:
-                        Text("Closing Soon")
-                            .foregroundStyle(.orange)
-                    }
-                    if let times = location.diningTimes, !times.isEmpty {
-                        ForEach(times, id: \.self) { time in
-                            Text("\(dateDisplay.string(from: time.openTime)) - \(dateDisplay.string(from: time.closeTime))")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("Not Open Today")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .swipeActions {
-                Button(action: {
-                    withAnimation {
-                        if favorites.contains(location) {
-                            favorites.remove(location)
-                        } else {
-                            favorites.add(location)
-                        }
-                    }
-                    
-                }) {
-                    if favorites.contains(location) {
-                        Label("Unfavorite", systemImage: "star")
-                    } else {
-                        Label("Favorite", systemImage: "star")
-                    }
-                }
-                .tint(favorites.contains(location) ? .yellow : nil)
-            }
-        }
-    }
-}
-
 struct ContentView: View {
     // Save sort/filter options in AppStorage so that they actually get saved.
     @AppStorage("openLocationsOnly") var openLocationsOnly: Bool = false
     @AppStorage("openLocationsFirst") var openLocationsFirst: Bool = false
     @State private var favorites = Favorites()
+    @State private var notifyingChefs = NotifyingChefs()
+    @State private var model = DiningModel()
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @State private var showingDonationSheet: Bool = false
     @State private var rotationDegrees: Double = 0
     @State private var diningLocations: [DiningLocation] = []
-    @State private var lastRefreshed: Date?
     @State private var searchText: String = ""
     
     private var animation: Animation {
@@ -91,20 +27,13 @@ struct ContentView: View {
         .repeatForever(autoreverses: false)
     }
     
-    // Asynchronously fetch the data for all of the locations and parse their data to display it.
+    // Small wrapper around the method on the model so that errors can be handled by showing the uh error screen.
     private func getDiningData() async {
-        var newDiningLocations: [DiningLocation] = []
-        switch await getAllDiningInfo(date: nil) {
-        case .success(let locations):
-            for i in 0..<locations.locations.count {
-                let diningInfo = parseLocationInfo(location: locations.locations[i], forDate: nil)
-                newDiningLocations.append(diningInfo)
-            }
-            diningLocations = newDiningLocations
-            lastRefreshed = Date()
+        do {
+            try await model.getHoursByDay()
             isLoading = false
-        case .failure(let error):
-            print(error)
+        } catch {
+            isLoading = true
             loadFailed = true
         }
     }
@@ -114,56 +43,15 @@ struct ContentView: View {
     // display "Open" instead of "Opening Soon" now that it's 11:01.
     private func updateOpenStatuses() async {
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
-            for location in diningLocations.indices {
-                diningLocations[location].updateOpenStatus()
-            }
+            model.updateOpenStatuses()
             // If the last refreshed date isn't today, that means we probably passed midnight and need to refresh the data.
             // So do that.
-            if !Calendar.current.isDateInToday(lastRefreshed ?? Date()) {
+            if !Calendar.current.isDateInToday(model.lastRefreshed ?? Date()) {
                 Task {
                     await getDiningData()
                 }
             }
         }
-    }
-    
-    // The dining locations need to be sorted before being displayed. Favorites should always be shown first, followed by non-favorites.
-    // Afterwards, filters the sorted list based on any current search text and the "open locations only" filtering option.
-    private var filteredLocations: [DiningLocation] {
-        var newLocations = diningLocations
-        // Because "The Commons" should be C for "Commons" and not T for "The".
-        func removeThe(_ name: String) -> String {
-            let lowercased = name.lowercased()
-            if lowercased.hasPrefix("the ") {
-                return String(name.dropFirst(4))
-            }
-            return name
-        }
-        newLocations.sort { firstLoc, secondLoc in
-            let firstLocIsFavorite = favorites.contains(firstLoc)
-            let secondLocIsFavorite = favorites.contains(secondLoc)
-            // Favorites get priority!
-            if firstLocIsFavorite != secondLocIsFavorite {
-                return firstLocIsFavorite && !secondLocIsFavorite
-            }
-            // Additional sorting rule that sorts open locations ahead of closed locations, if enabled.
-            if openLocationsFirst {
-                let firstIsOpen = (firstLoc.open == .open || firstLoc.open == .closingSoon)
-                let secondIsOpen = (secondLoc.open == .open || secondLoc.open == .closingSoon)
-                if firstIsOpen != secondIsOpen {
-                    return firstIsOpen && !secondIsOpen
-                }
-            }
-            return removeThe(firstLoc.name)
-                .localizedCaseInsensitiveCompare(removeThe(secondLoc.name)) == .orderedAscending
-        }
-        // Search/open only filtering step.
-        newLocations = newLocations.filter { location in
-            let searchedLocations = searchText.isEmpty || location.name.localizedCaseInsensitiveContains(searchText)
-            let openLocations = !openLocationsOnly || location.open == .open || location.open == .closingSoon
-            return searchedLocations && openLocations
-        }
-        return newLocations
     }
     
     var body: some View {
@@ -208,13 +96,18 @@ struct ContentView: View {
                     List {
                         Section(content: {
                             NavigationLink(destination: VisitingChefs()) {
-                                Text("Today's Visiting Chefs")
+                                Text("Upcoming Visiting Chefs")
                             }
                         })
                         Section(content: {
-                            LocationList(filteredLocations: filteredLocations)
+                            LocationList(
+                                diningLocations: $model.locationsByDay[0],
+                                openLocationsFirst: $openLocationsFirst,
+                                openLocationsOnly: $openLocationsOnly,
+                                searchText: $searchText
+                            )
                         }, footer: {
-                            if let lastRefreshed {
+                            if let lastRefreshed = model.lastRefreshed {
                                 VStack(alignment: .center) {
                                     Text("Last refreshed: \(lastRefreshed.formatted())")
                                         .foregroundStyle(.secondary)
@@ -239,6 +132,11 @@ struct ContentView: View {
                             }) {
                                 Label("Refresh", systemImage: "arrow.clockwise")
                             }
+//                            NavigationLink(destination: VisitingChefPush()) {
+//                                Image(systemName: "bell.badge")
+//                                    .foregroundColor(.accentColor)
+//                                Text("Notifications")
+//                            }
                             Divider()
                             NavigationLink(destination: AboutView()) {
                                 Image(systemName: "info.circle")
@@ -277,6 +175,8 @@ struct ContentView: View {
             }
         }
         .environment(favorites)
+        .environment(notifyingChefs)
+        .environment(model)
         .task {
             await getDiningData()
             await updateOpenStatuses()
