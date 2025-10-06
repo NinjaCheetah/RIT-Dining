@@ -79,7 +79,7 @@ struct VisitingChef: Equatable, Hashable {
     let description: String
     var openTime: Date
     var closeTime: Date
-    let status: VisitingChefStatus
+    var status: VisitingChefStatus
 }
 
 // A daily special at a location.
@@ -99,7 +99,7 @@ struct DiningLocation: Identifiable, Hashable {
     let date: Date
     let diningTimes: [DiningTimes]?
     var open: OpenStatus
-    let visitingChefs: [VisitingChef]?
+    var visitingChefs: [VisitingChef]?
     let dailySpecials: [DailySpecial]?
 }
 
@@ -128,4 +128,13 @@ struct WeeklyHours: Hashable {
     let day: String
     let date: Date
     let timeStrings: [String]
+}
+
+// A weekend food trucks even representing when it's happening and what food trucks will be there.
+struct FoodTruckEvent: Hashable {
+    let date: Date
+    let openTime: Date
+    let closeTime: Date
+    let location: String
+    let trucks: [String]
 }

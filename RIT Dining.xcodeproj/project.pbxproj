@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		371FE8FE2E937040005A6BBD /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = 371FE8FD2E937040005A6BBD /* SwiftSoup */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		376AE05B2E6495EB00AB698B /* RIT Dining.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RIT Dining.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				371FE8FE2E937040005A6BBD /* SwiftSoup in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = "RIT Dining";
 			packageProductDependencies = (
+				371FE8FD2E937040005A6BBD /* SwiftSoup */,
 			);
 			productName = "RIT Dining";
 			productReference = 376AE05B2E6495EB00AB698B /* RIT Dining.app */;
@@ -95,6 +101,7 @@
 			mainGroup = 376AE0522E6495EB00AB698B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				371FE8FC2E937040005A6BBD /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 376AE05C2E6495EB00AB698B /* Products */;
@@ -258,7 +265,7 @@
 				CODE_SIGN_ENTITLEMENTS = "RIT Dining/RIT Dining.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = 5GF7GKNTK4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -293,7 +300,7 @@
 				CODE_SIGN_ENTITLEMENTS = "RIT Dining/RIT Dining.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = 5GF7GKNTK4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -342,6 +349,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		371FE8FC2E937040005A6BBD /* XCRemoteSwiftPackageReference "SwiftSoup" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/scinfu/SwiftSoup.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.11.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		371FE8FD2E937040005A6BBD /* SwiftSoup */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 371FE8FC2E937040005A6BBD /* XCRemoteSwiftPackageReference "SwiftSoup" */;
+			productName = SwiftSoup;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 376AE0532E6495EB00AB698B /* Project object */;
 }

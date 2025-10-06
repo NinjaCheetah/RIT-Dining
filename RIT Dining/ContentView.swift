@@ -98,6 +98,9 @@ struct ContentView: View {
                             NavigationLink(destination: VisitingChefs()) {
                                 Text("Upcoming Visiting Chefs")
                             }
+                            NavigationLink(destination: FoodTruckView()) {
+                                Text("Weekend Food Trucks")
+                            }
                         })
                         Section(content: {
                             LocationList(

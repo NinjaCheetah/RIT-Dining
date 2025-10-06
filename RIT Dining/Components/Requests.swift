@@ -96,3 +96,22 @@ func getOccupancyPercentage(mdoId: Int) async -> Result<Double, Error> {
         return .failure(error)
     }
 }
+
+func getFoodTruckPage() async -> Result<String, Error> {
+    let urlString = "https://www.rit.edu/events/weekend-food-trucks"
+    
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
+    }
+
+    do {
+        let contents = try String(contentsOf: url)
+        let scheduleRegex = /<div class=\".*?field--name-field-event-description.*?\">([\s\S]*?)<\/div>/
+        if let match = contents.firstMatch(of: scheduleRegex) {
+            return .success(String(match.0))
+        }
+        return .success(contents)
+    } catch {
+        return .failure(error)
+    }
+}
