@@ -12,6 +12,7 @@ struct DetailView: View {
     @State var locationId: Int
     @Environment(Favorites.self) var favorites
     @Environment(DiningModel.self) var model
+    @Environment(\.openURL) private var openURL
     @State private var showingSafari: Bool = false
     @State private var openString: String = ""
     @State private var occupancyLoading: Bool = true
@@ -100,11 +101,19 @@ struct DetailView: View {
                                 .font(.title3)
                         }
                     }
+                    // Open OnDemand. Unfortunately the locations use arbitrary IDs, so just open the main OnDemand page.
+                    Button(action: {
+                        openURL(URL(string: "https://ondemand.rit.edu")!)
+                    }) {
+                        Image(systemName: "cart")
+                            
+                            .font(.title3)
+                    }
+                    .disabled(location.open == .closed || location.open == .openingSoon)
                     Button(action: {
                         showingSafari = true
                     }) {
                         Image(systemName: "map")
-                            .foregroundStyle(.accent)
                             .font(.title3)
                     }
                 }

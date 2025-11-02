@@ -13,34 +13,41 @@ struct AboutView: View {
     let buildNumber: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as! String
     
     var body: some View {
-        VStack {
+        VStack(alignment: .leading) {
             Image("Icon")
                 .resizable()
                 .frame(width: 128, height: 128)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
-            Text("RIT Dining App")
+            Text("An RIT Dining App")
                 .font(.title)
-            Text("because the RIT dining website is slow!")
             Text("Version \(appVersionString) (\(buildNumber))")
                 .foregroundStyle(.secondary)
-            Text("The RIT Dining app is powered by the TigerCenter API. Dining location occupancy information is sourced from the RIT maps API.")
-                .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Dining locations, their descriptions, and their opening hours are sourced from the RIT student-run TigerCenter API. Building occupancy information is sourced from the official RIT maps API.")
+                Text("This app is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the Rochester Institute of Technology. This app is student created and maintained.")
+                HStack {
+                    Button(action: {
+                        openURL(URL(string: "https://github.com/NinjaCheetah/RIT-Dining")!)
+                    }) {
+                        Text("Source Code")
+                    }
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    Button(action: {
+                        openURL(URL(string: "https://tigercenter.rit.edu/")!)
+                    }) {
+                        Text("TigerCenter")
+                    }
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    Button(action: {
+                        openURL(URL(string: "https://maps.rit.edu/")!)
+                    }) {
+                        Text("Official RIT Map")
+                    }
+                }
+            }
             Spacer()
-            Button(action: {
-                openURL(URL(string: "https://github.com/NinjaCheetah/RIT-Dining")!)
-            }) {
-                Label("GitHub Repository", systemImage: "globe")
-            }
-            Button(action: {
-                openURL(URL(string: "https://tigercenter.rit.edu/")!)
-            }) {
-                Label("TigerCenter", systemImage: "globe")
-            }
-            Button(action: {
-                openURL(URL(string: "https://maps.rit.edu/")!)
-            }) {
-                Label("RIT Maps", systemImage: "globe")
-            }
         }
         .padding()
         .navigationTitle("About")
