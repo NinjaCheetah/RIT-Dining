@@ -18,8 +18,10 @@ struct AboutView: View {
                 .resizable()
                 .frame(width: 128, height: 128)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
-            Text("An RIT Dining App")
+            Text("TigerDine")
                 .font(.title)
+            Text("An unofficial RIT Dining app")
+                .font(.subheadline)
             Text("Version \(appVersionString) (\(buildNumber))")
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 10) {

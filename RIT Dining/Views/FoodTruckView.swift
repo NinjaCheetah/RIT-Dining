@@ -46,6 +46,7 @@ struct FoodTruckView: View {
                 } else {
                     Image(systemName: "truck.box")
                         .resizable()
+                        .scaledToFit()
                         .frame(width: 75, height: 75)
                         .foregroundStyle(.accent)
                         .rotationEffect(.degrees(rotationDegrees))

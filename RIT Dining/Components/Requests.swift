@@ -16,7 +16,7 @@ enum InvalidHTTPError: Error {
 // Get information for all dining locations.
 func getAllDiningInfo(date: String?) async -> Result<DiningLocationsParser, Error> {
     // The endpoint requires that you specify a date, so get today's.
-    let dateString: String = date ?? getAPIFriendlyDateString(date: Date())
+    let dateString: String = date ?? getTCAPIFriendlyDateString(date: Date())
     let urlString = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-all?date=\(dateString)"
     
     guard let url = URL(string: urlString) else {
@@ -41,7 +41,7 @@ func getAllDiningInfo(date: String?) async -> Result<DiningLocationsParser, Erro
 // Get information for just one dining location based on its location ID.
 func getSingleDiningInfo(date: String?, locId: Int) async -> Result<DiningLocationParser, Error> {
     // The current date and the location ID are required to get information for just one location.
-    let dateString: String = date ?? getAPIFriendlyDateString(date: Date())
+    let dateString: String = date ?? getTCAPIFriendlyDateString(date: Date())
     let urlString = "https://tigercenter.rit.edu/tigerCenterApi/tc/dining-single?date=\(dateString)&locId=\(locId)"
     print("making request to \(urlString)")
 
@@ -97,6 +97,7 @@ func getOccupancyPercentage(mdoId: Int) async -> Result<Double, Error> {
     }
 }
 
+// Get the RIT Events food truck page and strip it down to just the part of the HTML that we'll need to parse with SwiftSoup.
 func getFoodTruckPage() async -> Result<String, Error> {
     let urlString = "https://www.rit.edu/events/weekend-food-trucks"
     
@@ -111,6 +112,75 @@ func getFoodTruckPage() async -> Result<String, Error> {
             return .success(String(match.0))
         }
         return .success(contents)
+    } catch {
+        return .failure(error)
+    }
+}
+
+func searchFDMealPlannerLocations() async -> Result<FDSearchResponseParser, Error> {
+    let urlString = "https://locations.fdmealplanner.com/api/v1/location-data-webapi/search-locationByAccount?AccountShortName=RIT&pageIndex=1&pageSize=0"
+    
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
+    }
+
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
+        }
+        
+        let decoded = try JSONDecoder().decode(FDSearchResponseParser.self, from: data)
+        return .success(decoded)
+    } catch {
+        return .failure(error)
+    }
+}
+
+func getFDMealPlannerOpenings(locationId: Int) async -> Result<FDMealPeriodsParser, Error> {
+    let urlString = "https://apiservicelocatorstenantrit.fdmealplanner.com/api/v1/data-locator-webapi/20/mealPeriods?LocationId=\(locationId)"
+    print("making request to \(urlString)")
+    
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
+    }
+
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
+        }
+        
+        let decoded = try JSONDecoder().decode(FDMealPeriodsParser.self, from: data)
+        return .success(decoded)
+    } catch {
+        return .failure(error)
+    }
+}
+
+func getFDMealPlannerMenu(locationId: Int, accountId: Int, mealPeriodId: Int) async -> Result<FDMealsParser, Error> {
+    let dateString = getFDMPAPIFriendlyDateString(date: Date())
+    let urlString = "https://apiservicelocatorstenantrit.fdmealplanner.com/api/v1/data-locator-webapi/20/meals?menuId=0&accountId=\(accountId)&locationId=\(locationId)&mealPeriodId=\(mealPeriodId)&tenantId=20&monthId=\(Calendar.current.component(.month, from: Date()))&startDate=\(dateString)&endDate=\(dateString)"
+    print("making request to \(urlString)")
+    
+    guard let url = URL(string: urlString) else {
+        return .failure(URLError(.badURL))
+    }
+
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return .failure(InvalidHTTPError.invalid)
+        }
+        
+        let decoded = try JSONDecoder().decode(FDMealsParser.self, from: data)
+        return .success(decoded)
     } catch {
         return .failure(error)
     }

@@ -22,12 +22,21 @@ struct SafariView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
-func getAPIFriendlyDateString(date: Date) -> String {
+func getTCAPIFriendlyDateString(date: Date) -> String {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .iso8601)
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = TimeZone.current
     formatter.dateFormat = "yyyy-MM-dd"
+    return formatter.string(from: date)
+}
+
+func getFDMPAPIFriendlyDateString(date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .iso8601)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone.current
+    formatter.dateFormat = "yyyy/MM/dd"
     return formatter.string(from: date)
 }
 

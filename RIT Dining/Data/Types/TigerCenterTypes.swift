@@ -1,5 +1,5 @@
 //
-//  Types.swift
+//  TigerCenterTypes.swift
 //  RIT Dining
 //
 //  Created by Campbell on 9/2/25.
@@ -88,10 +88,17 @@ struct DailySpecial: Equatable, Hashable {
     let type: String
 }
 
+// The IDs required to get the menu for a location from FD MealPlanner. Only present if the location appears in the map.
+struct FDMPIds: Hashable {
+    let locationId: Int
+    let accountId: Int
+}
+
 // The basic information about a dining location needed to display it in the app after parsing is finished.
 struct DiningLocation: Identifiable, Hashable {
     let id: Int
     let mdoId: Int
+    let fdmpIds: FDMPIds?
     let name: String
     let summary: String
     let desc: String
@@ -128,13 +135,4 @@ struct WeeklyHours: Hashable {
     let day: String
     let date: Date
     let timeStrings: [String]
-}
-
-// A weekend food trucks even representing when it's happening and what food trucks will be there.
-struct FoodTruckEvent: Hashable {
-    let date: Date
-    let openTime: Date
-    let closeTime: Date
-    let location: String
-    let trucks: [String]
 }

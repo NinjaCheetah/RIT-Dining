@@ -120,7 +120,7 @@ struct ContentView: View {
                         })
                     }
                 }
-                .navigationTitle("RIT Dining")
+                .navigationTitle("TigerDine")
                 .searchable(text: $searchText, prompt: "Search")
                 .refreshable {
                     await getDiningData()
@@ -135,6 +135,7 @@ struct ContentView: View {
                             }) {
                                 Label("Refresh", systemImage: "arrow.clockwise")
                             }
+                            // This is commented out because this feature is still not done. Sorry!
 //                            NavigationLink(destination: VisitingChefPush()) {
 //                                Image(systemName: "bell.badge")
 //                                    .foregroundColor(.accentColor)
