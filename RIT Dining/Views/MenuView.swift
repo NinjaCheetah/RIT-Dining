@@ -67,6 +67,9 @@ struct MenuView: View {
             let searchedLocations = searchText.isEmpty || item.name.localizedCaseInsensitiveContains(searchText)
             return searchedLocations
         }
+        newItems.sort { firstItem, secondItem in
+            return firstItem.name.localizedCaseInsensitiveCompare(secondItem.name) == .orderedAscending
+        }
         return newItems
     }
     

@@ -20,6 +20,6 @@ let tCtoFDMPMap: [Int: (Int, Int)] = [
     441: (11, 11), // Loaded Latke
     38: (12, 12), // Midnight Oil
     26: (14, 4), // RITZ
-    9041: (18, 17), // The College Grind
+    35: (18, 17), // The College Grind
     24: (15, 14), // The Commons
 ]

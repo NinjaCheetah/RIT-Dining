@@ -54,6 +54,32 @@ struct FDMealsParser: Decodable, Hashable {
             let category: String
             let allergenName: String
             let calories: String
+            let carbohydrates: String
+            let carbohydratesUOM: String
+            let dietaryFiber: String
+            let dietaryFiberUOM: String
+            let fat: String
+            let fatUOM: String
+            let protein: String
+            let proteinUOM: String
+            let saturatedFat: String
+            let saturatedFatUOM: String
+            let transFattyAcid: String
+            let transFattyAcidUOM: String
+            let calcium: String
+            let calciumUOM: String
+            let cholesterol: String
+            let cholesterolUOM: String
+            let iron: String
+            let ironUOM: String
+            let sodium: String
+            let sodiumUOM: String
+            let vitaminA: String
+            let vitaminAUOM: String
+            let vitaminC: String
+            let vitaminCUOM: String
+            let totalSugars: String
+            let totalSugarsUOM: String
             let recipeProductDietaryName: String
             let ingredientStatement: String
             let sellingPrice: Double
@@ -74,6 +100,13 @@ struct FDMealsParser: Decodable, Hashable {
     let result: [Result]
 }
 
+/// A single nutritional entry, including the amount and the unit. Used over a tuple for hashable purposes.
+struct FDNutritionalEntry: Hashable {
+    let type: String
+    let amount: Double
+    let unit: String
+}
+
 /// A single menu item, stripped down and reorganized to a format that actually makes sense for me to use in the rest of the app.
 struct FDMenuItem: Hashable, Identifiable {
     let id: Int
@@ -82,6 +115,7 @@ struct FDMenuItem: Hashable, Identifiable {
     let category: String
     let allergens: [String]
     let calories: Int
+    let nutritionalEntries: [FDNutritionalEntry]
     let dietaryMarkers: [String]
     let ingredients: String
     let price: Double

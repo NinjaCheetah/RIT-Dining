@@ -59,15 +59,37 @@ struct MenuItemView: View {
                             )
                     }
                 }
-                Text("Allergens")
-                    .font(.headline)
-                    .padding(.top, 8)
-                Text(menuItem.allergens.joined(separator: ", "))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .padding(.bottom, 8)
+                .padding(.bottom, 12)
+                if !menuItem.allergens.isEmpty {
+                    Text("Allergens")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text(menuItem.allergens.joined(separator: ", "))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(.bottom, 12)
+                        .onAppear {
+                            print(menuItem.allergens)
+                        }
+                }
+                VStack(alignment: .leading) {
+                    Text("Nutrition Facts")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    ForEach(menuItem.nutritionalEntries, id: \.self) { entry in
+                        HStack(alignment: .top) {
+                            Text(entry.type)
+                            Spacer()
+                            Text("\(String(format: "%.1f", entry.amount))\(entry.unit)")
+                                .foregroundStyle(.secondary)
+                        }
+                        Divider()
+                    }
+                }
+                .padding(.bottom, 12)
                 Text("Ingredients")
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.semibold)
                 Text(menuItem.ingredients)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -88,6 +110,7 @@ struct MenuItemView: View {
             category: "Baked Goods",
             allergens: ["Wheat", "Gluten", "Egg", "Milk", "Soy"],
             calories: 470,
+            nutritionalEntries: [FDNutritionalEntry(type: "Example", amount: 0.0, unit: "g")],
             dietaryMarkers: ["Vegetarian"],
             ingredients: "Some ingredients that you'd expect to find inside of a chocolate chip muffin",
             price: 2.79,
