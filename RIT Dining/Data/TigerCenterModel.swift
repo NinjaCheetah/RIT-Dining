@@ -1,5 +1,5 @@
 //
-//  Model.swift
+//  TigerCenterModel.swift
 //  RIT Dining
 //
 //  Created by Campbell on 10/1/25.

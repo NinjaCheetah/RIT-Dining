@@ -68,9 +68,6 @@ struct MenuItemView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .padding(.bottom, 12)
-                        .onAppear {
-                            print(menuItem.allergens)
-                        }
                 }
                 VStack(alignment: .leading) {
                     Text("Nutrition Facts")

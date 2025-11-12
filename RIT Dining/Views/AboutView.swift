@@ -24,12 +24,13 @@ struct AboutView: View {
                 .font(.subheadline)
             Text("Version \(appVersionString) (\(buildNumber))")
                 .foregroundStyle(.secondary)
+                .padding(.bottom, 2)
             VStack(alignment: .leading, spacing: 10) {
                 Text("Dining locations, their descriptions, and their opening hours are sourced from the RIT student-run TigerCenter API. Building occupancy information is sourced from the official RIT maps API.")
                 Text("This app is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the Rochester Institute of Technology. This app is student created and maintained.")
                 HStack {
                     Button(action: {
-                        openURL(URL(string: "https://github.com/NinjaCheetah/RIT-Dining")!)
+                        openURL(URL(string: "https://github.com/NinjaCheetah/TigerDine")!)
                     }) {
                         Text("Source Code")
                     }

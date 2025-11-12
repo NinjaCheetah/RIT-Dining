@@ -33,7 +33,7 @@ struct DonationView: View {
                         .fontWeight(.bold)
                 }
                 .font(.title)
-                Text("The RIT Dining app is free and open source software!")
+                Text("The TigerDine app is free and open source software!")
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                 Text("However, the Apple Developer Program is expensive, and I paid $106.19 pretty much just to distribute this app and nothing else. If you can, I'd appreciate it if you wouldn't mind tossing a coin or two my way to help and make that expense a little less painful.")

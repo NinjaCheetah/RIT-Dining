@@ -7,7 +7,7 @@
 
 import Foundation
 
-// A weekend food trucks even representing when it's happening and what food trucks will be there.
+/// A weekend food trucks even representing when it's happening and what food trucks will be there.
 struct FoodTruckEvent: Hashable {
     let date: Date
     let openTime: Date

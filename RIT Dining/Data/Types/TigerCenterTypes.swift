@@ -7,12 +7,11 @@
 
 import Foundation
 
-// I'll be honest, I am NOT good at representing other people's JSON in my code. This kinda sucks but it gets the job done and can
-// be improved later when I feel like it.
+/// Struct to parse the response data from the TigerCenter API when getting the information for a dining location.
 struct DiningLocationParser: Decodable {
-    // An individual "event", which is just an open period for the location.
+    /// An individual "event", which is just an open period for the location.
     struct Event: Decodable {
-        // Hour exceptions for the given event.
+        /// Hour exceptions for the given event.
         struct HoursException: Decodable {
             let id: Int
             let name: String
@@ -27,14 +26,13 @@ struct DiningLocationParser: Decodable {
         let daysOfWeek: [String]
         let exceptions: [HoursException]?
     }
-    // An individual "menu", which can be either a daily special item or a visitng chef. Description needs to be optional because
-    // visiting chefs have descriptions but specials do not.
+    /// An individual "menu", which can be either a daily special item or a visitng chef. Description needs to be optional because visiting chefs have descriptions but specials do not.
     struct Menu: Decodable {
         let name: String
         let description: String?
         let category: String
     }
-    // Other basic information to read from a location's JSON that we'll need later.
+    /// Other basic information to read from a location's JSON that we'll need later.
     let id: Int
     let mdoId: Int
     let name: String
@@ -45,12 +43,12 @@ struct DiningLocationParser: Decodable {
     let menus: [Menu]
 }
 
-// Struct that probably doesn't need to exist but this made parsing the list of location responses easy.
+/// Struct that probably doesn't need to exist but this made parsing the list of location responses easy.
 struct DiningLocationsParser: Decodable {
     let locations: [DiningLocationParser]
 }
 
-// Enum to represent the four possible states a given location can be in.
+/// Enum to represent the four possible states a given location can be in.
 enum OpenStatus {
     case open
     case closed
@@ -58,13 +56,13 @@ enum OpenStatus {
     case closingSoon
 }
 
-// An individual open period for a location.
+/// An individual open period for a location.
 struct DiningTimes: Equatable, Hashable {
     var openTime: Date
     var closeTime: Date
 }
 
-// Enum to represent the five possible states a visiting chef can be in.
+/// Enum to represent the five possible states a visiting chef can be in.
 enum VisitingChefStatus {
     case hereNow
     case gone
@@ -73,7 +71,7 @@ enum VisitingChefStatus {
     case leavingSoon
 }
 
-// A visiting chef present at a location.
+/// A visiting chef present at a location.
 struct VisitingChef: Equatable, Hashable {
     let name: String
     let description: String
@@ -82,19 +80,19 @@ struct VisitingChef: Equatable, Hashable {
     var status: VisitingChefStatus
 }
 
-// A daily special at a location.
+/// A daily special at a location.
 struct DailySpecial: Equatable, Hashable {
     let name: String
     let type: String
 }
 
-// The IDs required to get the menu for a location from FD MealPlanner. Only present if the location appears in the map.
+/// The IDs required to get the menu for a location from FD MealPlanner. Only present if the location appears in the map.
 struct FDMPIds: Hashable {
     let locationId: Int
     let accountId: Int
 }
 
-// The basic information about a dining location needed to display it in the app after parsing is finished.
+/// The basic information about a dining location needed to display it in the app after parsing is finished.
 struct DiningLocation: Identifiable, Hashable {
     let id: Int
     let mdoId: Int
@@ -110,9 +108,9 @@ struct DiningLocation: Identifiable, Hashable {
     let dailySpecials: [DailySpecial]?
 }
 
-// Parser to read the occupancy data for a location.
+/// Parser to read the occupancy data for a location.
 struct DiningOccupancyParser: Decodable {
-    // Represents a per-hour occupancy rating.
+    /// Represents a per-hour occupancy rating.
     struct HourlyOccupancy: Decodable {
         let hour: Int
         let today: Int
@@ -130,7 +128,7 @@ struct DiningOccupancyParser: Decodable {
     let intra_loc_hours: [HourlyOccupancy]
 }
 
-// Struct used to represent a day and its hours as strings. Type used for the hours of today and the next 6 days used in DetailView.
+/// Struct used to represent a day and its hours as strings. Type used for the hours of today and the next 6 days used in DetailView.
 struct WeeklyHours: Hashable {
     let day: String
     let date: Date

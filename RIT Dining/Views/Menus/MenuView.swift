@@ -17,6 +17,8 @@ struct MenuView: View {
     @State private var rotationDegrees: Double = 0
     @State private var selectedMealPeriod: Int = 0
     @State private var openPeriods: [Int] = []
+    @State private var dietaryRestrictionsModel = MenuDietaryRestrictionsModel()
+    @State private var showingDietaryRestrictionsSheet: Bool = false
     
     private var animation: Animation {
         .linear
@@ -63,6 +65,42 @@ struct MenuView: View {
     
     private var filteredMenuItems: [FDMenuItem] {
         var newItems = menuItems
+        // Filter out dietary restrictions, starting with pork/beef since those are tagged.
+        if !dietaryRestrictionsModel.filteredDietaryMarkers.isEmpty {
+            newItems = newItems.filter { item in
+                for marker in dietaryRestrictionsModel.filteredDietaryMarkers {
+                    if item.dietaryMarkers.contains(marker) {
+                        return false
+                    }
+                }
+                return true
+            }
+        }
+        // Filter out allergens.
+        newItems = newItems.filter { item in
+            if !item.allergens.isEmpty {
+                for allergen in item.allergens {
+                    if let checkingAllergen = Allergen(rawValue: allergen.lowercased()) {
+                        if dietaryRestrictionsModel.dietaryRestrictions.contains(checkingAllergen) {
+                            return false
+                        }
+                    }
+                }
+            }
+            return true
+        }
+        // Filter down to vegetarian/vegan only if enabled.
+        if dietaryRestrictionsModel.isVegetarian || dietaryRestrictionsModel.isVegan {
+            newItems = newItems.filter { item in
+                if dietaryRestrictionsModel.isVegetarian && (item.dietaryMarkers.contains("Vegetarian") || item.dietaryMarkers.contains("Vegan")) {
+                    return true
+                } else if dietaryRestrictionsModel.isVegan && (item.dietaryMarkers.contains("Vegan")) {
+                    return true
+                }
+                return false
+            }
+        }
+        // Filter down to search contents.
         newItems = newItems.filter { item in
             let searchedLocations = searchText.isEmpty || item.name.localizedCaseInsensitiveContains(searchText)
             return searchedLocations
@@ -164,6 +202,20 @@ struct MenuView: View {
                         Image(systemName: "clock")
                     }
                 }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button(action: {
+                        showingDietaryRestrictionsSheet = true
+                    }) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                    }
+                    if #unavailable(iOS 26.0) {
+                        Spacer()
+                    }
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                }
             }
             .onChange(of: selectedMealPeriod) {
                 rotationDegrees = 0
@@ -171,6 +223,9 @@ struct MenuView: View {
                 Task {
                     await getMenuForPeriod(mealPeriodId: selectedMealPeriod)
                 }
+            }
+            .sheet(isPresented: $showingDietaryRestrictionsSheet) {
+                MenuDietaryRestrictionsSheet(dietaryRestrictionsModel: $dietaryRestrictionsModel)
             }
         }
     }
