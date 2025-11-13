@@ -24,9 +24,9 @@ func parseFDMealPlannerMenu(menu: FDMealsParser) -> [FDMenuItem] {
             // englishAlternateName holds the proper name of the item, but it's blank for some items for some reason. If that's the
             // case, then we should fall back on componentName, which is less user-friendly but works as a backup.
             let realName = if recipe.englishAlternateName != "" {
-                recipe.englishAlternateName
+                recipe.englishAlternateName.trimmingCharacters(in: .whitespaces)
             } else {
-                recipe.componentName
+                recipe.componentName.trimmingCharacters(in: .whitespaces)
             }
             let allergens = recipe.allergenName != "" ? recipe.allergenName.components(separatedBy: ",") : []
             // Get the list of dietary markers (Vegan, Vegetarian, Pork, Beef), and drop "Vegetarian" if "Vegan" is also included since

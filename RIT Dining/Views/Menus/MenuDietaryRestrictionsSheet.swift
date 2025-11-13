@@ -15,32 +15,10 @@ struct MenuDietaryRestrictionsSheet: View {
         NavigationView {
             Form {
                 Section(header: Text("Diet")) {
-                    Toggle(isOn: Binding(
-                        get: {
-                            dietaryRestrictionsModel.filteredDietaryMarkers.contains("Beef")
-                        },
-                        set: { isOn in
-                            if isOn {
-                                dietaryRestrictionsModel.filteredDietaryMarkers.insert("Beef")
-                            } else {
-                                dietaryRestrictionsModel.filteredDietaryMarkers.remove("Beef")
-                            }
-                        } )
-                    ) {
+                    Toggle(isOn: $dietaryRestrictionsModel.noBeef) {
                         Text("No Beef")
                     }
-                    Toggle(isOn: Binding(
-                        get: {
-                            dietaryRestrictionsModel.filteredDietaryMarkers.contains("Pork")
-                        },
-                        set: { isOn in
-                            if isOn {
-                                dietaryRestrictionsModel.filteredDietaryMarkers.insert("Pork")
-                            } else {
-                                dietaryRestrictionsModel.filteredDietaryMarkers.remove("Pork")
-                            }
-                        } )
-                    ) {
+                    Toggle(isOn: $dietaryRestrictionsModel.noPork) {
                         Text("No Pork")
                     }
                     Toggle(isOn: $dietaryRestrictionsModel.isVegetarian) {

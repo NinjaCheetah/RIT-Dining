@@ -7,10 +7,10 @@
 
 import SwiftUI
 
-@Observable
-class MenuDietaryRestrictionsModel {
-    var filteredDietaryMarkers: Set<String> = []
+class MenuDietaryRestrictionsModel: ObservableObject {
     var dietaryRestrictions = DietaryRestrictions()
-    var isVegetarian: Bool = false
-    var isVegan: Bool = false
+    @AppStorage("isVegetarian") var isVegetarian: Bool = false
+    @AppStorage("isVegan") var isVegan: Bool = false
+    @AppStorage("noBeef") var noBeef: Bool = false
+    @AppStorage("noPork") var noPork: Bool = false
 }

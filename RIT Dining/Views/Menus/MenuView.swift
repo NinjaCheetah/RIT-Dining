@@ -65,17 +65,6 @@ struct MenuView: View {
     
     private var filteredMenuItems: [FDMenuItem] {
         var newItems = menuItems
-        // Filter out dietary restrictions, starting with pork/beef since those are tagged.
-        if !dietaryRestrictionsModel.filteredDietaryMarkers.isEmpty {
-            newItems = newItems.filter { item in
-                for marker in dietaryRestrictionsModel.filteredDietaryMarkers {
-                    if item.dietaryMarkers.contains(marker) {
-                        return false
-                    }
-                }
-                return true
-            }
-        }
         // Filter out allergens.
         newItems = newItems.filter { item in
             if !item.allergens.isEmpty {
@@ -98,6 +87,17 @@ struct MenuView: View {
                     return true
                 }
                 return false
+            }
+        }
+        // Filter out pork/beef.
+        if dietaryRestrictionsModel.noBeef {
+            newItems = newItems.filter { item in
+                item.dietaryMarkers.contains("Beef") == false
+            }
+        }
+        if dietaryRestrictionsModel.noPork {
+            newItems = newItems.filter { item in
+                item.dietaryMarkers.contains("Pork") == false
             }
         }
         // Filter down to search contents.
