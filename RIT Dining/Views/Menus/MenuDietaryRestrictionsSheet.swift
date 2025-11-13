@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MenuDietaryRestrictionsSheet: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var dietaryRestrictionsModel: MenuDietaryRestrictionsModel
+    @ObservedObject var dietaryRestrictionsModel: MenuDietaryRestrictionsModel
     
     var body: some View {
         NavigationView {

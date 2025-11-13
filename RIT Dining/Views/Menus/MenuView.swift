@@ -17,7 +17,7 @@ struct MenuView: View {
     @State private var rotationDegrees: Double = 0
     @State private var selectedMealPeriod: Int = 0
     @State private var openPeriods: [Int] = []
-    @State private var dietaryRestrictionsModel = MenuDietaryRestrictionsModel()
+    @StateObject private var dietaryRestrictionsModel = MenuDietaryRestrictionsModel()
     @State private var showingDietaryRestrictionsSheet: Bool = false
     
     private var animation: Animation {
@@ -225,7 +225,7 @@ struct MenuView: View {
                 }
             }
             .sheet(isPresented: $showingDietaryRestrictionsSheet) {
-                MenuDietaryRestrictionsSheet(dietaryRestrictionsModel: $dietaryRestrictionsModel)
+                MenuDietaryRestrictionsSheet(dietaryRestrictionsModel: dietaryRestrictionsModel)
             }
         }
     }
